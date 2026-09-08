@@ -23,33 +23,19 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 
 
 | Dataset | Real | Tampered | Total | Forgery Type |
-
 |---|---:|---:|---:|---|
-
 | [CASIA v2](#casia-v2) | 7,491 | 5,123 | 12,614 | Copy-move, splicing |
-
 | [IMD2020](#imd2020) | 414 | 2,010 | 2,424 | Splicing, copy-move, removal |
-
 | [FantasticReality](#fantasticreality) | 16,592 | 19,423 | 36,015 | Splicing |
-
 | [tampCOCO](#tampcoco) | 0 | 799,441* | 799,441* | Copy-move, splicing |
-
 | [compRAISE](#compraise) | 24,462 | 0 | 24,462 | Pristine/source images; compression-related forensic artifacts |
-
 | [MISD](#misd) | 618 | 300 | 918 | Multiple-image splicing |
-
 | [Columbia](#columbia) | 183 | 180 | 363 | Splicing |
-
 | [In-the-Wild](#in-the-wild) | 0 | 201 | 201 | Real-world splicing |
-
 | [Realistic Tampering (Korus)](#realistic-tampering-korus) | 220 | 220 | 440 | Object insertion, object removal |
-
-| [CASIA v1](#casia-v1) | 800 | 920â€  | 1,720â€  | Copy-move, splicing |
-
+| [CASIA v1](#casia-v1) | 800 | 920Ã¢â‚¬Â  | 1,720Ã¢â‚¬Â  | Copy-move, splicing |
 | [COCO 2017](#coco-2017) | 123,287 | 0 | 123,287 | Source imagery |
-
 | [CocoGlide](#cocoglide) | 512 | 512 | 1,024 | AI-based object replacement / inpainting |
-
 | [DEFACTO](#defacto) | 0 | 149,000 | 149,000 | Splicing, copy-move, removal/inpainting |
 
 
@@ -58,7 +44,7 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 
 
 
-â€  CASIA v1 is reported as 920 tampered images in several commonly used dataset lists; some sources report 921. This catalog uses 920 and records the discrepancy in the dataset notes.
+Ã¢â‚¬Â  CASIA v1 is reported as 920 tampered images in several commonly used dataset lists; some sources report 921. This catalog uses 920 and records the discrepancy in the dataset notes.
 
 
 
@@ -74,21 +60,21 @@ The datasets in this catalog cover the following major manipulation categories:
 
 
 
-- **Copy-move** â€” content is copied from one region of an image and pasted elsewhere in the same image.
+- **Copy-move** Ã¢â‚¬â€ content is copied from one region of an image and pasted elsewhere in the same image.
 
-- **Splicing** â€” content from one or more images is composited into another image.
+- **Splicing** Ã¢â‚¬â€ content from one or more images is composited into another image.
 
-- **Object insertion** â€” a new object or region is inserted into an image.
+- **Object insertion** Ã¢â‚¬â€ a new object or region is inserted into an image.
 
-- **Object removal** â€” an existing object or region is removed.
+- **Object removal** Ã¢â‚¬â€ an existing object or region is removed.
 
-- **Image compositing** â€” multiple image sources are combined into a single image.
+- **Image compositing** Ã¢â‚¬â€ multiple image sources are combined into a single image.
 
-- **Inpainting** â€” missing or unwanted image regions are reconstructed or replaced.
+- **Inpainting** Ã¢â‚¬â€ missing or unwanted image regions are reconstructed or replaced.
 
-- **Retouching / enhancement** â€” local or global modifications intended to alter image appearance.
+- **Retouching / enhancement** Ã¢â‚¬â€ local or global modifications intended to alter image appearance.
 
-- **Compression / re-JPEG artifacts** â€” compression-related traces useful for forensic analysis.
+- **Compression / re-JPEG artifacts** Ã¢â‚¬â€ compression-related traces useful for forensic analysis.
 
 
 
@@ -398,7 +384,7 @@ MISD contains images created by compositing content from multiple source images.
 
 
 
-[MISD â€” Multiple Image Splicing Dataset](https://www.mdpi.com/2306-5729/6/10/102)
+[MISD Ã¢â‚¬â€ Multiple Image Splicing Dataset](https://www.mdpi.com/2306-5729/6/10/102)
 
 
 
@@ -552,7 +538,7 @@ The dataset provides realistic tampering examples together with corresponding or
 
 
 
-[Korus â€” Realistic Tampering Dataset](https://www.pkorus.pl/downloads/dataset-realistic-tampering)
+[Korus Ã¢â‚¬â€ Realistic Tampering Dataset](https://www.pkorus.pl/downloads/dataset-realistic-tampering)
 
 
 
@@ -574,9 +560,9 @@ The dataset provides realistic tampering examples together with corresponding or
 
 - Real: **800**
 
-- Tampered: **920â€ **
+- Tampered: **920Ã¢â‚¬Â **
 
-- Total: **1,720â€ **
+- Total: **1,720Ã¢â‚¬Â **
 
 
 
@@ -608,7 +594,7 @@ A commonly reported breakdown is:
 
 
 
-â€  Some sources report **921** tampered images and therefore a total of **1,721**. This catalog uses 920 because it is the count reported by several commonly used image-forensics dataset lists.
+Ã¢â‚¬Â  Some sources report **921** tampered images and therefore a total of **1,721**. This catalog uses 920 because it is the count reported by several commonly used image-forensics dataset lists.
 
 
 
@@ -809,11 +795,8 @@ Some datasets in this catalog are primarily source-image collections rather than
 
 
 | Dataset | Role |
-
 |---|---|
-
 | **COCO 2017** | Source imagery used to construct synthetic manipulation datasets |
-
 | **compRAISE** | Pristine/source images for image-forensic and compression-related experiments |
 
 
@@ -831,21 +814,13 @@ These datasets should therefore not be interpreted as containing the same type o
 
 
 | Forgery Type | Representative Datasets |
-
 |---|---|
-
 | Copy-move | CASIA v1, CASIA v2, tampCOCO, DEFACTO |
-
 | Splicing | CASIA v1, CASIA v2, FantasticReality, MISD, Columbia, In-the-Wild, tampCOCO, DEFACTO |
-
 | Object insertion | Realistic Tampering (Korus), DEFACTO |
-
 | Object removal | IMD2020, Realistic Tampering (Korus), DEFACTO |
-
 | Inpainting / generative replacement | CocoGlide, DEFACTO |
-
 | Compression / forensic artifacts | compRAISE |
-
 | Source imagery | COCO 2017 |
 
 
