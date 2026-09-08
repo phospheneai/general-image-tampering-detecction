@@ -23,6 +23,7 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 | [Realistic Tampering (Korus)](#realistic-tampering-korus) | 220 | 220 | 440 | Object insertion, object removal |
 | [CASIA v1](#casia-v1) | 800 | 920† | 1,720† | Copy-move, splicing |
 | [COCO 2017](#coco-2017) | 123,287 | 0 | 123,287 | Source imagery |
+| [LAION-Mobile](#laion-mobile) | 822,296 | 0 | 822,296 | Pristine/natural images; source imagery |
 | [CocoGlide](#cocoglide) | 512 | 512 | 1,024 | AI-based object replacement / inpainting |
 | [DEFACTO](#defacto) | 0 | 149,000 | 149,000 | Splicing, copy-move, removal/inpainting |
 
@@ -375,6 +376,41 @@ The standard COCO 2017 train + validation count is **123,287**. The COCO test se
 
 ---
 
+## LAION-Mobile
+
+**Dataset type:** Pristine/source image dataset for image forensics
+
+**Images:**
+
+- Real/source: **822,296**
+- Tampered: **0**
+- Total: **822,296**
+
+**Role:**
+
+- Large-scale pristine/natural image collection
+- Real-image source for training image-forgery detection systems
+- Useful for balancing the real-image side of forgery datasets
+
+**Dataset metadata:**
+
+- Dataset: **LAION-Mobile**
+- Phase: **Phase1**
+- Domain: **General**
+- Category: **NaturalImages**
+- All records are labeled **Real**
+
+**Source:**
+
+[LAION-Mobile streaming dataset](https://huggingface.co/datasets/sumathiselvan/LAION-Mobile-streaming)
+
+**Notes:**
+
+LAION-Mobile is a pristine/source-image collection rather than a standalone tampered-image dataset. The streaming release contains **822,296 image records**, all labeled **Real**. The dataset consists of JPEG/JPG images and can be used as an additional real-image source when constructing a balanced training set.
+
+---
+
+
 ## CocoGlide
 
 **Dataset type:** AI-generated image manipulation dataset
@@ -436,6 +472,7 @@ Some datasets in this catalog are primarily source-image collections rather than
 |---|---|
 | **COCO 2017** | Source imagery used to construct synthetic manipulation datasets |
 | **compRAISE** | Pristine/source images for image-forensic and compression-related experiments |
+| **LAION-Mobile** | Large-scale pristine/natural images for real-image training and forensic experiments |
 
 These datasets should therefore not be interpreted as containing the same type of tampering labels as CASIA, MISD, Columbia, or DEFACTO.
 
@@ -451,7 +488,7 @@ These datasets should therefore not be interpreted as containing the same type o
 | Object removal | IMD2020, Realistic Tampering (Korus), DEFACTO |
 | Inpainting / generative replacement | CocoGlide, DEFACTO |
 | Compression / forensic artifacts | compRAISE |
-| Source imagery | COCO 2017 |
+| Source imagery | COCO 2017, LAION-Mobile |
 
 ---
 
