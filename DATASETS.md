@@ -20,8 +20,6 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 
 ## Dataset Summary
 
-
-
 | Dataset | Real | Tampered | Total | Forgery Type |
 |---|---:|---:|---:|---|
 | [CASIA v2](#casia-v2) | 7,491 | 5,123 | 12,614 | Copy-move, splicing |
@@ -33,23 +31,56 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 | [Columbia](#columbia) | 183 | 180 | 363 | Splicing |
 | [In-the-Wild](#in-the-wild) | 0 | 201 | 201 | Real-world splicing |
 | [Realistic Tampering (Korus)](#realistic-tampering-korus) | 220 | 220 | 440 | Object insertion, object removal |
-| [CASIA v1](#casia-v1) | 800 | 920Ã¢â‚¬Â  | 1,720Ã¢â‚¬Â  | Copy-move, splicing |
+| [CASIA v1](#casia-v1) | 800 | 920† | 1,720† | Copy-move, splicing |
 | [COCO 2017](#coco-2017) | 123,287 | 0 | 123,287 | Source imagery |
 | [CocoGlide](#cocoglide) | 512 | 512 | 1,024 | AI-based object replacement / inpainting |
 | [DEFACTO](#defacto) | 0 | 149,000 | 149,000 | Splicing, copy-move, removal/inpainting |
 
+\* Published descriptions commonly refer to tampCOCO as approximately 800K images. The count used here is 799,441 for the cataloged version.
 
-
-\\* Published descriptions commonly refer to tampCOCO as approximately 800K images. The count used here is 799,441 for the cataloged version.
-
-
-
-Ã¢â‚¬Â  CASIA v1 is reported as 920 tampered images in several commonly used dataset lists; some sources report 921. This catalog uses 920 and records the discrepancy in the dataset notes.
-
-
+† CASIA v1 is reported as 920 tampered images in several commonly used dataset lists; some sources report 921. This catalog uses 920 and records the discrepancy in the dataset notes.
 
 ---
 
+## Train
+
+| Dataset | Real | Tampered | Total |
+|---|---:|---:|---:|
+| CASIA v2 | 7,491 | 5,123 | 12,614 |
+| IMD2020 | — | — | — |
+| FantasticReality | 16,592 | 19,423 | 36,015 |
+| tampCOCO | — | — | 799,441 |
+| compRAISE | 24,462 | 0 | 24,462 |
+| MISD | 618 | 300 | 918 |
+| Columbia | — | — | 125 |
+| In-the-Wild | — | — | — |
+| Realistic Tampering (Korus) | — | — | — |
+| CASIA v1 | 800 | 920 | 1,720 |
+| COCO 2017 | 118,287 | 0 | 118,287 |
+| CocoGlide | — | — | 1,024 |
+| DEFACTO | 0 | 149,000 | 149,000 |
+
+---
+
+## Test
+
+| Dataset | Real | Tampered | Total |
+|---|---:|---:|---:|
+| CASIA v2 | — | — | — |
+| IMD2020 | — | — | 2,424 |
+| FantasticReality | — | — | — |
+| tampCOCO | — | — | — |
+| compRAISE | — | — | — |
+| MISD | — | — | — |
+| Columbia | — | — | 45 |
+| In-the-Wild | 0 | 201 | 201 |
+| Realistic Tampering (Korus) | 220 | 220 | 440 |
+| CASIA v1 | — | — | — |
+| COCO 2017 | 5,000 | 0 | 5,000 |
+| CocoGlide | 512 | 0 | 512 |
+| DEFACTO | — | — | — |
+
+---
 
 
 ## Forgery-Type Taxonomy
