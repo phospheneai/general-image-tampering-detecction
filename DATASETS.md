@@ -1,8 +1,8 @@
-\# General Image Forgery Datasets
+# General Image Forgery Datasets
 
 
 
-This document provides a curated list of datasets for \*\*general image forgery and tampering detection\*\*. The collection focuses on image-level manipulations including copy-move, splicing, object insertion/removal, image compositing, inpainting, and related forensic artifacts.
+This document provides a curated list of datasets for **general image forgery and tampering detection**. The collection focuses on image-level manipulations including copy-move, splicing, object insertion/removal, image compositing, inpainting, and related forensic artifacts.
 
 
 
@@ -10,15 +10,15 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 
 
 
-> \*\*Terminology:\*\* `Real` refers to pristine/original images, while `Tampered` refers to manipulated or forged images.
+> **Terminology:** `Real` refers to pristine/original images, while `Tampered` refers to manipulated or forged images.
 
 
 
-\---
+---
 
 
 
-\## Dataset Summary
+## Dataset Summary
 
 
 
@@ -26,47 +26,47 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 
 |---|---:|---:|---:|---|
 
-| \[CASIA v2](#casia-v2) | 7,491 | 5,123 | 12,614 | Copy-move, splicing |
+| [CASIA v2](#casia-v2) | 7,491 | 5,123 | 12,614 | Copy-move, splicing |
 
-| \[IMD2020](#imd2020) | 414 | 2,010 | 2,424 | Splicing, copy-move, removal |
+| [IMD2020](#imd2020) | 414 | 2,010 | 2,424 | Splicing, copy-move, removal |
 
-| \[FantasticReality](#fantasticreality) | 16,592 | 19,423 | 36,015 | Splicing |
+| [FantasticReality](#fantasticreality) | 16,592 | 19,423 | 36,015 | Splicing |
 
-| \[tampCOCO](#tampcoco) | 0 | 799,441\* | 799,441\* | Copy-move, splicing |
+| [tampCOCO](#tampcoco) | 0 | 799,441* | 799,441* | Copy-move, splicing |
 
-| \[compRAISE](#compraise) | 24,462 | 0 | 24,462 | Pristine/source images; compression-related forensic artifacts |
+| [compRAISE](#compraise) | 24,462 | 0 | 24,462 | Pristine/source images; compression-related forensic artifacts |
 
-| \[MISD](#misd) | 618 | 300 | 918 | Multiple-image splicing |
+| [MISD](#misd) | 618 | 300 | 918 | Multiple-image splicing |
 
-| \[Columbia](#columbia) | 183 | 180 | 363 | Splicing |
+| [Columbia](#columbia) | 183 | 180 | 363 | Splicing |
 
-| \[In-the-Wild](#in-the-wild) | 0 | 201 | 201 | Real-world splicing |
+| [In-the-Wild](#in-the-wild) | 0 | 201 | 201 | Real-world splicing |
 
-| \[Realistic Tampering (Korus)](#realistic-tampering-korus) | 220 | 220 | 440 | Object insertion, object removal |
+| [Realistic Tampering (Korus)](#realistic-tampering-korus) | 220 | 220 | 440 | Object insertion, object removal |
 
-| \[CASIA v1](#casia-v1) | 800 | 920† | 1,720† | Copy-move, splicing |
+| [CASIA v1](#casia-v1) | 800 | 920â€  | 1,720â€  | Copy-move, splicing |
 
-| \[COCO 2017](#coco-2017) | 123,287 | 0 | 123,287 | Source imagery |
+| [COCO 2017](#coco-2017) | 123,287 | 0 | 123,287 | Source imagery |
 
-| \[CocoGlide](#cocoglide) | 512 | 512 | 1,024 | AI-based object replacement / inpainting |
+| [CocoGlide](#cocoglide) | 512 | 512 | 1,024 | AI-based object replacement / inpainting |
 
-| \[DEFACTO](#defacto) | 0 | 149,000 | 149,000 | Splicing, copy-move, removal/inpainting |
-
-
-
-\\\* Published descriptions commonly refer to tampCOCO as approximately 800K images. The count used here is 799,441 for the cataloged version.
+| [DEFACTO](#defacto) | 0 | 149,000 | 149,000 | Splicing, copy-move, removal/inpainting |
 
 
 
-† CASIA v1 is reported as 920 tampered images in several commonly used dataset lists; some sources report 921. This catalog uses 920 and records the discrepancy in the dataset notes.
+\\* Published descriptions commonly refer to tampCOCO as approximately 800K images. The count used here is 799,441 for the cataloged version.
 
 
 
-\---
+â€  CASIA v1 is reported as 920 tampered images in several commonly used dataset lists; some sources report 921. This catalog uses 920 and records the discrepancy in the dataset notes.
 
 
 
-\## Forgery-Type Taxonomy
+---
+
+
+
+## Forgery-Type Taxonomy
 
 
 
@@ -74,59 +74,59 @@ The datasets in this catalog cover the following major manipulation categories:
 
 
 
-\- \*\*Copy-move\*\* — content is copied from one region of an image and pasted elsewhere in the same image.
+- **Copy-move** â€” content is copied from one region of an image and pasted elsewhere in the same image.
 
-\- \*\*Splicing\*\* — content from one or more images is composited into another image.
+- **Splicing** â€” content from one or more images is composited into another image.
 
-\- \*\*Object insertion\*\* — a new object or region is inserted into an image.
+- **Object insertion** â€” a new object or region is inserted into an image.
 
-\- \*\*Object removal\*\* — an existing object or region is removed.
+- **Object removal** â€” an existing object or region is removed.
 
-\- \*\*Image compositing\*\* — multiple image sources are combined into a single image.
+- **Image compositing** â€” multiple image sources are combined into a single image.
 
-\- \*\*Inpainting\*\* — missing or unwanted image regions are reconstructed or replaced.
+- **Inpainting** â€” missing or unwanted image regions are reconstructed or replaced.
 
-\- \*\*Retouching / enhancement\*\* — local or global modifications intended to alter image appearance.
+- **Retouching / enhancement** â€” local or global modifications intended to alter image appearance.
 
-\- \*\*Compression / re-JPEG artifacts\*\* — compression-related traces useful for forensic analysis.
-
-
-
-\---
+- **Compression / re-JPEG artifacts** â€” compression-related traces useful for forensic analysis.
 
 
 
-\# Dataset Details
+---
 
 
 
-\## CASIA v2
+# Dataset Details
 
 
 
-\*\*Dataset type:\*\* Traditional image forgery detection
+## CASIA v2
 
 
 
-\*\*Images:\*\*
+**Dataset type:** Traditional image forgery detection
 
 
 
-\- Real: \*\*7,491\*\*
-
-\- Tampered: \*\*5,123\*\*
-
-\- Total: \*\*12,614\*\*
+**Images:**
 
 
 
-\*\*Forgery types:\*\*
+- Real: **7,491**
+
+- Tampered: **5,123**
+
+- Total: **12,614**
 
 
 
-\- Copy-move
+**Forgery types:**
 
-\- Splicing
+
+
+- Copy-move
+
+- Splicing
 
 
 
@@ -134,15 +134,15 @@ The tampered portion contains both copy-move and splicing manipulations.
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[CASIA Tampered Image Detection Evaluation Database](http://forensics.idealtest.org/)
+[CASIA Tampered Image Detection Evaluation Database](http://forensics.idealtest.org/)
 
 
 
-\*\*Notes:\*\*
+**Notes:**
 
 
 
@@ -150,53 +150,53 @@ CASIA v2 is one of the most widely used benchmark datasets for image tampering d
 
 
 
-\---
+---
 
 
 
-\## IMD2020
+## IMD2020
 
 
 
-\*\*Dataset type:\*\* Real-world image manipulation dataset
+**Dataset type:** Real-world image manipulation dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real: \*\*414\*\*
+- Real: **414**
 
-\- Tampered: \*\*2,010\*\*
+- Tampered: **2,010**
 
-\- Total: \*\*2,424\*\*
-
-
-
-\*\*Forgery types:\*\*
+- Total: **2,424**
 
 
 
-\- Image splicing
-
-\- Copy-move
-
-\- Object removal
-
-\- Other real-world manipulations
+**Forgery types:**
 
 
 
-\*\*Source:\*\*
+- Image splicing
+
+- Copy-move
+
+- Object removal
+
+- Other real-world manipulations
 
 
 
-\[IMD2020](https://staff.utia.cas.cz/novozada/imd2020/)
+**Source:**
 
 
 
-\*\*Notes:\*\*
+[IMD2020](https://staff.utia.cas.cz/novozada/imd2020/)
+
+
+
+**Notes:**
 
 
 
@@ -204,35 +204,35 @@ IMD2020 focuses on realistic image manipulations and is useful for evaluating ge
 
 
 
-\---
+---
 
 
 
-\## FantasticReality
+## FantasticReality
 
 
 
-\*\*Dataset type:\*\* Large-scale image forgery dataset
+**Dataset type:** Large-scale image forgery dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real: \*\*16,592\*\*
+- Real: **16,592**
 
-\- Tampered: \*\*19,423\*\*
+- Tampered: **19,423**
 
-\- Total: \*\*36,015\*\*
-
-
-
-\*\*Forgery type:\*\*
+- Total: **36,015**
 
 
 
-\- Splicing
+**Forgery type:**
+
+
+
+- Splicing
 
 
 
@@ -240,45 +240,45 @@ The dataset contains semantically diverse manipulated images and was designed to
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[FantasticReality](https://github.com/liyidong86/FantasticReality)
+[FantasticReality](https://github.com/liyidong86/FantasticReality)
 
 
 
-\---
+---
 
 
 
-\## tampCOCO
+## tampCOCO
 
 
 
-\*\*Dataset type:\*\* Large-scale synthetic image tampering dataset
+**Dataset type:** Large-scale synthetic image tampering dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Tampered: \*\*799,441\*\*\* 
+- Tampered: **799,441*** 
 
-\- Real: \*\*0\*\*
+- Real: **0**
 
-\- Total: \*\*799,441\*\*\*
-
-
-
-\*\*Forgery types:\*\*
+- Total: **799,441***
 
 
 
-\- Splicing
+**Forgery types:**
 
-\- Copy-move
+
+
+- Splicing
+
+- Copy-move
 
 
 
@@ -286,19 +286,19 @@ tampCOCO is constructed using imagery from the COCO dataset and provides a large
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[CAT-Net / tampCOCO](https://github.com/mjkwon2021/CAT-Net)
+[CAT-Net / tampCOCO](https://github.com/mjkwon2021/CAT-Net)
 
 
 
-\\\* Published descriptions may round the dataset size to approximately \*\*800K\*\*. The catalog uses \*\*799,441\*\* for the specific version/count being tracked here.
+\\* Published descriptions may round the dataset size to approximately **800K**. The catalog uses **799,441** for the specific version/count being tracked here.
 
 
 
-\*\*Important:\*\*
+**Important:**
 
 
 
@@ -306,51 +306,51 @@ Because this dataset is generated from source imagery, the tampered images shoul
 
 
 
-\---
+---
 
 
 
-\## compRAISE
+## compRAISE
 
 
 
-\*\*Dataset type:\*\* Pristine/source image dataset for image forensics
+**Dataset type:** Pristine/source image dataset for image forensics
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real/source: \*\*24,462\*\*
+- Real/source: **24,462**
 
-\- Tampered: \*\*0\*\*
+- Tampered: **0**
 
-\- Total: \*\*24,462\*\*
-
-
-
-\*\*Role:\*\*
+- Total: **24,462**
 
 
 
-\- Pristine images
-
-\- Compression-related forensic analysis
-
-\- Source imagery for tampering/compression experiments
+**Role:**
 
 
 
-\*\*Source:\*\*
+- Pristine images
+
+- Compression-related forensic analysis
+
+- Source imagery for tampering/compression experiments
 
 
 
-\[compRAISE](https://github.com/photometric-stereo/compRAISE)
+**Source:**
 
 
 
-\*\*Notes:\*\*
+[compRAISE](https://github.com/photometric-stereo/compRAISE)
+
+
+
+**Notes:**
 
 
 
@@ -358,35 +358,35 @@ compRAISE is included because pristine/source images are useful for training and
 
 
 
-\---
+---
 
 
 
-\## MISD
+## MISD
 
 
 
-\*\*Dataset type:\*\* Multiple-image splicing dataset
+**Dataset type:** Multiple-image splicing dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real: \*\*618\*\*
+- Real: **618**
 
-\- Tampered: \*\*300\*\*
+- Tampered: **300**
 
-\- Total: \*\*918\*\*
-
-
-
-\*\*Forgery type:\*\*
+- Total: **918**
 
 
 
-\- Multiple-image splicing
+**Forgery type:**
+
+
+
+- Multiple-image splicing
 
 
 
@@ -394,43 +394,43 @@ MISD contains images created by compositing content from multiple source images.
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[MISD — Multiple Image Splicing Dataset](https://www.mdpi.com/2306-5729/6/10/102)
+[MISD â€” Multiple Image Splicing Dataset](https://www.mdpi.com/2306-5729/6/10/102)
 
 
 
-\---
+---
 
 
 
-\## Columbia
+## Columbia
 
 
 
-\*\*Dataset type:\*\* Image splicing dataset
+**Dataset type:** Image splicing dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real: \*\*183\*\*
+- Real: **183**
 
-\- Tampered: \*\*180\*\*
+- Tampered: **180**
 
-\- Total: \*\*363\*\*
-
-
-
-\*\*Forgery type:\*\*
+- Total: **363**
 
 
 
-\- Splicing
+**Forgery type:**
+
+
+
+- Splicing
 
 
 
@@ -438,15 +438,15 @@ The Columbia dataset contains uncompressed TIFF images and is a commonly used be
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[Columbia Image Splicing Detection Evaluation Dataset](https://www.ee.columbia.edu/ln/dvmm/downloads/AuthSplicedDataSet/dlform.html)
+[Columbia Image Splicing Detection Evaluation Dataset](https://www.ee.columbia.edu/ln/dvmm/downloads/AuthSplicedDataSet/dlform.html)
 
 
 
-\*\*Notes:\*\*
+**Notes:**
 
 
 
@@ -454,35 +454,35 @@ Individual papers may use different subsets or train/test partitions. The counts
 
 
 
-\---
+---
 
 
 
-\## In-the-Wild
+## In-the-Wild
 
 
 
-\*\*Dataset type:\*\* Real-world image splicing dataset
+**Dataset type:** Real-world image splicing dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real/source: \*\*0\*\*
+- Real/source: **0**
 
-\- Tampered: \*\*201\*\*
+- Tampered: **201**
 
-\- Total: \*\*201\*\*
-
-
-
-\*\*Forgery type:\*\*
+- Total: **201**
 
 
 
-\- Real-world splicing
+**Forgery type:**
+
+
+
+- Real-world splicing
 
 
 
@@ -490,57 +490,57 @@ The dataset contains manipulated images collected from real-world online sources
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[In-the-Wild Image Forgery Dataset](https://github.com/RU-System-Forensics/MediaForensics)
+[In-the-Wild Image Forgery Dataset](https://github.com/RU-System-Forensics/MediaForensics)
 
 
 
-\*\*Reference:\*\*
+**Reference:**
 
 
 
-Huh et al., \*Fighting Fake News: Image Splice Detection via Learned Self-Consistency\*, ECCV 2018.
+Huh et al., *Fighting Fake News: Image Splice Detection via Learned Self-Consistency*, ECCV 2018.
 
 
 
-\---
+---
 
 
 
-\## Realistic Tampering (Korus)
+## Realistic Tampering (Korus)
 
 
 
-\*\*Dataset type:\*\* Realistic image tampering dataset
+**Dataset type:** Realistic image tampering dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real: \*\*220\*\*
+- Real: **220**
 
-\- Tampered: \*\*220\*\*
+- Tampered: **220**
 
-\- Total: \*\*440\*\*
-
-
-
-\*\*Forgery types:\*\*
+- Total: **440**
 
 
 
-\- Object insertion
+**Forgery types:**
 
-\- Object removal
 
-\- Splicing
 
-\- Copy-move
+- Object insertion
+
+- Object removal
+
+- Splicing
+
+- Copy-move
 
 
 
@@ -548,45 +548,45 @@ The dataset provides realistic tampering examples together with corresponding or
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[Korus — Realistic Tampering Dataset](https://www.pkorus.pl/downloads/dataset-realistic-tampering)
+[Korus â€” Realistic Tampering Dataset](https://www.pkorus.pl/downloads/dataset-realistic-tampering)
 
 
 
-\---
+---
 
 
 
-\## CASIA v1
+## CASIA v1
 
 
 
-\*\*Dataset type:\*\* Traditional image forgery dataset
+**Dataset type:** Traditional image forgery dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real: \*\*800\*\*
+- Real: **800**
 
-\- Tampered: \*\*920†\*\*
+- Tampered: **920â€ **
 
-\- Total: \*\*1,720†\*\*
-
-
-
-\*\*Forgery types:\*\*
+- Total: **1,720â€ **
 
 
 
-\- Copy-move
+**Forgery types:**
 
-\- Splicing
+
+
+- Copy-move
+
+- Splicing
 
 
 
@@ -594,51 +594,51 @@ A commonly reported breakdown is:
 
 
 
-\- Copy-move: \*\*459\*\*
+- Copy-move: **459**
 
-\- Splicing: \*\*461\*\*
-
-
-
-\*\*Source:\*\*
+- Splicing: **461**
 
 
 
-\[CASIA Tampered Image Detection Evaluation Database](http://forensics.idealtest.org/)
+**Source:**
 
 
 
-† Some sources report \*\*921\*\* tampered images and therefore a total of \*\*1,721\*\*. This catalog uses 920 because it is the count reported by several commonly used image-forensics dataset lists.
+[CASIA Tampered Image Detection Evaluation Database](http://forensics.idealtest.org/)
 
 
 
-\---
+â€  Some sources report **921** tampered images and therefore a total of **1,721**. This catalog uses 920 because it is the count reported by several commonly used image-forensics dataset lists.
 
 
 
-\## COCO 2017
+---
 
 
 
-\*\*Dataset type:\*\* Source imagery dataset
+## COCO 2017
 
 
 
-\*\*Images:\*\*
+**Dataset type:** Source imagery dataset
 
 
 
-\- Train: \*\*118,287\*\*
-
-\- Validation: \*\*5,000\*\*
-
-\- Train + validation: \*\*123,287\*\*
-
-\- Tampered: \*\*0\*\*
+**Images:**
 
 
 
-\*\*Role:\*\*
+- Train: **118,287**
+
+- Validation: **5,000**
+
+- Train + validation: **123,287**
+
+- Tampered: **0**
+
+
+
+**Role:**
 
 
 
@@ -646,53 +646,53 @@ COCO 2017 is not itself an image-forgery dataset. It is included because its ima
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[COCO Dataset](https://cocodataset.org/)
+[COCO Dataset](https://cocodataset.org/)
 
 
 
-\*\*Important:\*\*
+**Important:**
 
 
 
-The standard COCO 2017 train + validation count is \*\*123,287\*\*. The COCO test set is separate and should not be added to this figure when reporting the labeled train/validation source collection.
+The standard COCO 2017 train + validation count is **123,287**. The COCO test set is separate and should not be added to this figure when reporting the labeled train/validation source collection.
 
 
 
-\---
+---
 
 
 
-\## CocoGlide
+## CocoGlide
 
 
 
-\*\*Dataset type:\*\* AI-generated image manipulation dataset
+**Dataset type:** AI-generated image manipulation dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real: \*\*512\*\*
+- Real: **512**
 
-\- Tampered: \*\*512\*\*
+- Tampered: **512**
 
-\- Total: \*\*1,024\*\*
-
-
-
-\*\*Forgery type:\*\*
+- Total: **1,024**
 
 
 
-\- AI-based object replacement
+**Forgery type:**
 
-\- Inpainting / generative image editing
+
+
+- AI-based object replacement
+
+- Inpainting / generative image editing
 
 
 
@@ -700,15 +700,15 @@ CocoGlide contains manipulated images generated using the GLIDE generative model
 
 
 
-\*\*Source:\*\*
+**Source:**
 
 
 
-\[CocoGlide](https://github.com/ymhzyj/DEAL-300K)
+[CocoGlide](https://github.com/ymhzyj/DEAL-300K)
 
 
 
-\*\*Notes:\*\*
+**Notes:**
 
 
 
@@ -716,51 +716,51 @@ Unlike traditional copy-move and splicing datasets, CocoGlide represents a newer
 
 
 
-\---
+---
 
 
 
-\## DEFACTO
+## DEFACTO
 
 
 
-\*\*Dataset type:\*\* Large-scale synthetic image forgery dataset
+**Dataset type:** Large-scale synthetic image forgery dataset
 
 
 
-\*\*Images:\*\*
+**Images:**
 
 
 
-\- Real/source: \*\*0\*\*
+- Real/source: **0**
 
-\- Tampered: \*\*149,000\*\*
+- Tampered: **149,000**
 
-\- Total: \*\*149,000\*\*
-
-
-
-\*\*Forgery types:\*\*
+- Total: **149,000**
 
 
 
-\- Splicing: \*\*105,000\*\*
-
-\- Copy-move: \*\*19,000\*\*
-
-\- Removal / inpainting: \*\*25,000\*\*
+**Forgery types:**
 
 
 
-\*\*Source:\*\*
+- Splicing: **105,000**
+
+- Copy-move: **19,000**
+
+- Removal / inpainting: **25,000**
 
 
 
-\[DEFACTO](https://github.com/namhocho/DEFACTO)
+**Source:**
 
 
 
-\*\*Notes:\*\*
+[DEFACTO](https://github.com/namhocho/DEFACTO)
+
+
+
+**Notes:**
 
 
 
@@ -768,15 +768,15 @@ DEFACTO provides a large-scale collection of automatically generated image manip
 
 
 
-\---
+---
 
 
 
-\# Dataset Splits
+# Dataset Splits
 
 
 
-A universal train/test split is \*\*not defined consistently across these datasets\*\*.
+A universal train/test split is **not defined consistently across these datasets**.
 
 
 
@@ -784,11 +784,11 @@ Many image-forensics papers create their own experimental partitions from the or
 
 
 
-\- The counts in the \*\*Dataset Summary\*\* represent the overall image counts.
+- The counts in the **Dataset Summary** represent the overall image counts.
 
-\- Train/test counts should only be reported when they are explicitly defined by the dataset release or by a clearly identified benchmark protocol.
+- Train/test counts should only be reported when they are explicitly defined by the dataset release or by a clearly identified benchmark protocol.
 
-\- A train/test split reported in an individual research paper should not automatically be treated as the official split of the dataset.
+- A train/test split reported in an individual research paper should not automatically be treated as the official split of the dataset.
 
 
 
@@ -796,11 +796,11 @@ For reproducibility, users should record the exact split protocol used in their 
 
 
 
-\---
+---
 
 
 
-\# Source Datasets
+# Source Datasets
 
 
 
@@ -812,9 +812,9 @@ Some datasets in this catalog are primarily source-image collections rather than
 
 |---|---|
 
-| \*\*COCO 2017\*\* | Source imagery used to construct synthetic manipulation datasets |
+| **COCO 2017** | Source imagery used to construct synthetic manipulation datasets |
 
-| \*\*compRAISE\*\* | Pristine/source images for image-forensic and compression-related experiments |
+| **compRAISE** | Pristine/source images for image-forensic and compression-related experiments |
 
 
 
@@ -822,11 +822,11 @@ These datasets should therefore not be interpreted as containing the same type o
 
 
 
-\---
+---
 
 
 
-\# Dataset Selection by Forgery Type
+# Dataset Selection by Forgery Type
 
 
 
@@ -850,75 +850,76 @@ These datasets should therefore not be interpreted as containing the same type o
 
 
 
-\---
+---
 
 
 
-\# Notes and Limitations
+# Notes and Limitations
 
 
 
-1\. \*\*Dataset counts may differ between sources.\*\* Different papers and repositories may use different versions, filtering procedures, or subsets of the same dataset.
+1\. **Dataset counts may differ between sources.** Different papers and repositories may use different versions, filtering procedures, or subsets of the same dataset.
 
 
 
-2\. \*\*CASIA v1 has a reported count discrepancy.\*\* Some sources report 920 tampered images while others report 921. This catalog uses 920 and explicitly records the discrepancy.
+2\. **CASIA v1 has a reported count discrepancy.** Some sources report 920 tampered images while others report 921. This catalog uses 920 and explicitly records the discrepancy.
 
 
 
-3\. \*\*tampCOCO counts may be reported approximately.\*\* Published descriptions commonly refer to the dataset as approximately 800K images. The cataloged version used here contains 799,441 images.
+3\. **tampCOCO counts may be reported approximately.** Published descriptions commonly refer to the dataset as approximately 800K images. The cataloged version used here contains 799,441 images.
 
 
 
-4\. \*\*Train/test splits are not necessarily official.\*\* Many image-forensics papers create their own splits. Such experimental splits should not be confused with the total dataset size.
+4\. **Train/test splits are not necessarily official.** Many image-forensics papers create their own splits. Such experimental splits should not be confused with the total dataset size.
 
 
 
-5\. \*\*Synthetic versus real-world manipulations should be distinguished.\*\* Datasets such as tampCOCO and DEFACTO contain automatically generated manipulations, whereas datasets such as In-the-Wild and Realistic Tampering contain more realistic or naturally occurring manipulation scenarios.
+5\. **Synthetic versus real-world manipulations should be distinguished.** Datasets such as tampCOCO and DEFACTO contain automatically generated manipulations, whereas datasets such as In-the-Wild and Realistic Tampering contain more realistic or naturally occurring manipulation scenarios.
 
 
 
-6\. \*\*COCO 2017 is a source dataset, not a forgery dataset.\*\* It is included because COCO imagery is used to generate several synthetic image-tampering datasets.
+6\. **COCO 2017 is a source dataset, not a forgery dataset.** It is included because COCO imagery is used to generate several synthetic image-tampering datasets.
 
 
 
-7\. \*\*compRAISE is primarily a pristine/source dataset.\*\* It should not be counted as a collection of tampered images.
+7\. **compRAISE is primarily a pristine/source dataset.** It should not be counted as a collection of tampered images.
 
 
 
-8\. \*\*Licensing and redistribution terms vary by dataset.\*\* Users should consult each dataset's official source before downloading or redistributing the data.
+8\. **Licensing and redistribution terms vary by dataset.** Users should consult each dataset's official source before downloading or redistributing the data.
 
 
 
-\---
+---
 
 
 
-\# References
+# References
 
 
 
-\- CASIA Tampered Image Detection Evaluation Database
+- CASIA Tampered Image Detection Evaluation Database
 
-\- IMD2020
+- IMD2020
 
-\- FantasticReality
+- FantasticReality
 
-\- tampCOCO / CAT-Net
+- tampCOCO / CAT-Net
 
-\- compRAISE
+- compRAISE
 
-\- MISD
+- MISD
 
-\- Columbia Image Splicing Detection Evaluation Dataset
+- Columbia Image Splicing Detection Evaluation Dataset
 
-\- In-the-Wild
+- In-the-Wild
 
-\- Realistic Tampering Dataset
+- Realistic Tampering Dataset
 
-\- COCO 2017
+- COCO 2017
 
-\- CocoGlide
+- CocoGlide
 
-\- DEFACTO
+- DEFACTO
+
 
