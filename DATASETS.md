@@ -526,3 +526,4 @@ These datasets should therefore not be interpreted as containing the same type o
 - COCO 2017
 - CocoGlide
 - DEFACTO
+- LAION-Mobile
