@@ -44,7 +44,8 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 | CASIA v1 | 800 | 920 | 1,720 |
 | COCO 2017 | 118,287 | 0 | 118,287 |
 | DEFACTO | 0 | 149,000 | 149,000 |
-| **TOTAL** | **168,250** | **974,207** | **1,142,457** |
+| LAION-Mobile | 822,296 | 0 | 822,296 |
+| **TOTAL** | **990,546** | **974,207** | **1,964,753** |
 
 *Note: CocoGlide is not included in Train — see the Test table below. It is a fixed benchmark set, not typically used for training.*
 
