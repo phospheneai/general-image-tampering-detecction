@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+
+# ML outputs
+checkpoints/
+outputs/
+runs/
+wandb/
+
+# Model weights / large artifacts
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+
+# Local datasets
+data/
+datasets/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
