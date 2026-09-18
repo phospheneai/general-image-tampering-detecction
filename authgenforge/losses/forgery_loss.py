@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from authgenforge import *
 
+from authgenforge.losses.bce_loss import PixelBCEWithLogitsLoss
+from authgenforge.losses.edge_bce_loss import EdgeWeightedBCEWithLogitsLoss
+
 
 class ForgerySegmentationLoss(nn.Module):
     """

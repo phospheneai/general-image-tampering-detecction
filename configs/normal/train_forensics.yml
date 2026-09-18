@@ -15,9 +15,15 @@ data_context: normal
 
 datasets:
 
+  # NOTE: train and test currently point at the same CASIA v2 sample
+  # set (D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed,
+  # images/<name>.jpg + masks/<name>.png pairs) for pipeline validation
+  # only — this is not a held-out split. Replace with a real train/test
+  # split before a real training run.
+
   train:
-    dataroot: ""
-    n_workers: 8
+    dataroot: "D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed"
+    n_workers: 4
     batch_size: 4
     crop_size: 512
     buffer_size: 1000
@@ -26,8 +32,8 @@ datasets:
     pin_memory: true
 
   test:
-    dataroot: ""
-    n_workers: 4
+    dataroot: "D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed"
+    n_workers: 2
     crop_size: 512
     pin_memory: true
 
@@ -39,7 +45,7 @@ datasets:
 structure:
 
   backbone:
-    model_path: ""
+    model_path: ../../artifacts/mirror/dinov3-vitl16
     model_type: dinov3_vitl16
     lora_rank: 32
     lora_alpha: 64

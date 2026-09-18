@@ -194,7 +194,7 @@ class SegmentationTrainer:
         criterion: nn.Module,
         optimizer,
         scheduler=None,
-        device: str = "cuda",
+        device: str | None = None,
         experiment_name: str = "experiment",
         save_checkpoint_dir: str = "checkpoints",
         mixed_precision: bool = True,
@@ -210,6 +210,16 @@ class SegmentationTrainer:
         # --------------------------------------------------------
         # Basic configuration
         # --------------------------------------------------------
+
+        # Auto-detect rather than hard-defaulting to "cuda" - a
+        # GPU-only default crashes outright on a CPU-only machine
+        # (e.g. local development before deploying to a GPU box).
+        if device is None:
+            device = (
+                "cuda"
+                if torch.cuda.is_available()
+                else "cpu"
+            )
 
         self.device = device
 

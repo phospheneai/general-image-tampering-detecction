@@ -12,6 +12,12 @@ import os
 import argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Windows terminals default to a legacy codepage (e.g. cp1252) that can't
+# encode the checkmark/cross symbols below - force UTF-8 regardless of
+# platform rather than falling back to plain ASCII everywhere.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 import itertools
 
 from authgenforge import *

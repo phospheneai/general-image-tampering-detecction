@@ -29,10 +29,26 @@ from authgenforge.augmentations.blocks import (
 # ============================================================================
 
 
-def get_train_transforms(
-    crop_size: int = 512,
-):
+class _GaussianBlur:
+    """
+    Picklable stand-in for `lambda image: TF.gaussian_blur(image, kernel_size=k)`.
 
+    DataLoader workers on Windows/macOS (spawn start method, unlike Linux's
+    fork) pickle the transform to send it to each worker process — a local
+    lambda/closure can't be pickled, so it must be a plain class instance.
+    """
+
+    def __init__(self, kernel_size: int):
+        self.kernel_size = kernel_size
+
+    def __call__(self, image):
+        return TF.gaussian_blur(
+            image,
+            kernel_size=self.kernel_size,
+        )
+
+
+class _TrainTransform:
     """
     Default training augmentation preset for general image forgery
     segmentation.
@@ -48,84 +64,93 @@ def get_train_transforms(
         - blur
         - color jitter
         - grayscale
+
+    A class (not a closure) so DataLoader worker processes can pickle it —
+    see _GaussianBlur's docstring.
     """
 
-    cap = CapMegapixelsPair(
-        max_mp=3.0,
-        max_side=8000,
-        center=False,
-    )
+    def __init__(
+        self,
+        crop_size: int = 512,
+    ):
 
-    resize = RandomResizePair(
-        scale_range=(0.3, 2.0),
-        p=0.3,
-    )
+        self.crop_size = crop_size
 
-    noise_choice = ImageRandomChoice(
-        [
-            NumpyBlock(
-                [
-                    RandomGaussianNoise(
-                        p=0.1
-                    )
-                ]
-            ),
-            NumpyBlock(
-                [
-                    RandomPepperNoise(
-                        p=0.1
-                    )
-                ]
-            ),
-        ]
-    )
+        self.cap = CapMegapixelsPair(
+            max_mp=3.0,
+            max_side=8000,
+            center=False,
+        )
 
-    sharpen = NumpyBlock(
-        [
-            RandomSharpen(
-                p=0.1
-            )
-        ]
-    )
+        self.resize = RandomResizePair(
+            scale_range=(0.3, 2.0),
+            p=0.3,
+        )
 
-    compression = RandomDoubleCompression(
-        overall_p=1.0,
-        weights=(0.8, 0.2, 0.0),
-        second_pass_p=0.2,
-        second_jpeg_quality=(55, 99),
-    )
+        self.noise_choice = ImageRandomChoice(
+            [
+                NumpyBlock(
+                    [
+                        RandomGaussianNoise(
+                            p=0.1
+                        )
+                    ]
+                ),
+                NumpyBlock(
+                    [
+                        RandomPepperNoise(
+                            p=0.1
+                        )
+                    ]
+                ),
+            ]
+        )
 
-    blur_choice = ImageRandomChoice(
-        [
-            lambda image: TF.gaussian_blur(
-                image,
-                kernel_size=3,
-            ),
-            lambda image: TF.gaussian_blur(
-                image,
-                kernel_size=5,
-            ),
-            NumpyBlock(
-                [
-                    MedianBlur(
-                        kernel_size=3
-                    )
-                ]
-            ),
-            NumpyBlock(
-                [
-                    MotionBlur(
-                        kernel_size=5
-                    )
-                ]
-            ),
-        ]
-    )
+        self.sharpen = NumpyBlock(
+            [
+                RandomSharpen(
+                    p=0.1
+                )
+            ]
+        )
 
-    image_to_tensor = ImageToTensor()
-    mask_to_tensor = MaskToTensor()
+        self.compression = RandomDoubleCompression(
+            overall_p=1.0,
+            weights=(0.8, 0.2, 0.0),
+            second_pass_p=0.2,
+            second_jpeg_quality=(55, 99),
+        )
 
-    def transform(
+        self.blur_choice = ImageRandomChoice(
+            [
+                _GaussianBlur(kernel_size=3),
+                _GaussianBlur(kernel_size=5),
+                NumpyBlock(
+                    [
+                        MedianBlur(
+                            kernel_size=3
+                        )
+                    ]
+                ),
+                NumpyBlock(
+                    [
+                        MotionBlur(
+                            kernel_size=5
+                        )
+                    ]
+                ),
+            ]
+        )
+
+        self.crop = PadRandomCropPair(
+            size=crop_size
+        )
+
+        self.image_to_tensor = ImageToTensor()
+        self.mask_to_tensor = MaskToTensor()
+
+    def __call__(
+        self,
         image,
         mask,
     ):
@@ -134,7 +159,7 @@ def get_train_transforms(
         # Bound expensive operations
         # --------------------------------------------------------------
 
-        image, mask = cap(
+        image, mask = self.cap(
             image,
             mask,
         )
@@ -143,7 +168,7 @@ def get_train_transforms(
         # Random resize
         # --------------------------------------------------------------
 
-        image, mask = resize(
+        image, mask = self.resize(
             image,
             mask,
         )
@@ -152,7 +177,7 @@ def get_train_transforms(
         # Noise
         # --------------------------------------------------------------
 
-        image = noise_choice(
+        image = self.noise_choice(
             image
         )
 
@@ -160,7 +185,7 @@ def get_train_transforms(
         # Sharpening
         # --------------------------------------------------------------
 
-        image = sharpen(
+        image = self.sharpen(
             image
         )
 
@@ -170,7 +195,7 @@ def get_train_transforms(
 
         if random.random() < 0.5:
 
-            image = compression(
+            image = self.compression(
                 image
             )
 
@@ -204,7 +229,7 @@ def get_train_transforms(
 
         if random.random() < 0.2:
 
-            image = blur_choice(
+            image = self.blur_choice(
                 image
             )
 
@@ -235,9 +260,7 @@ def get_train_transforms(
         # Final crop
         # --------------------------------------------------------------
 
-        image, mask = PadRandomCropPair(
-            size=crop_size
-        )(
+        image, mask = self.crop(
             image,
             mask,
         )
@@ -246,17 +269,21 @@ def get_train_transforms(
         # Tensor conversion
         # --------------------------------------------------------------
 
-        image = image_to_tensor(
+        image = self.image_to_tensor(
             image
         )
 
-        mask = mask_to_tensor(
+        mask = self.mask_to_tensor(
             mask
         )
 
         return image, mask
 
-    return transform
+
+def get_train_transforms(
+    crop_size: int = 512,
+):
+    return _TrainTransform(crop_size=crop_size)
 
 
 # ============================================================================
@@ -264,10 +291,7 @@ def get_train_transforms(
 # ============================================================================
 
 
-def get_val_transforms(
-    crop_size: int = 512,
-):
-
+class _ValTransform:
     """
     Deterministic validation transform.
 
@@ -275,22 +299,31 @@ def get_val_transforms(
 
     The same deterministic spatial transformation is applied to the
     image and mask.
+
+    A class (not a closure) so DataLoader worker processes can pickle
+    it — see _GaussianBlur's docstring above.
     """
 
-    cap = CapMegapixelsPair(
-        max_mp=3.0,
-        max_side=8000,
-        center=True,
-    )
+    def __init__(
+        self,
+        crop_size: int = 512,
+    ):
 
-    crop = PadCenterCropPair(
-        size=crop_size
-    )
+        self.cap = CapMegapixelsPair(
+            max_mp=3.0,
+            max_side=8000,
+            center=True,
+        )
 
-    image_to_tensor = ImageToTensor()
-    mask_to_tensor = MaskToTensor()
+        self.crop = PadCenterCropPair(
+            size=crop_size
+        )
 
-    def transform(
+        self.image_to_tensor = ImageToTensor()
+        self.mask_to_tensor = MaskToTensor()
+
+    def __call__(
+        self,
         image,
         mask,
     ):
@@ -299,7 +332,7 @@ def get_val_transforms(
         # Deterministic megapixel cap
         # --------------------------------------------------------------
 
-        image, mask = cap(
+        image, mask = self.cap(
             image,
             mask,
         )
@@ -308,7 +341,7 @@ def get_val_transforms(
         # Deterministic center crop
         # --------------------------------------------------------------
 
-        image, mask = crop(
+        image, mask = self.crop(
             image,
             mask,
         )
@@ -317,14 +350,18 @@ def get_val_transforms(
         # Tensor conversion
         # --------------------------------------------------------------
 
-        image = image_to_tensor(
+        image = self.image_to_tensor(
             image
         )
 
-        mask = mask_to_tensor(
+        mask = self.mask_to_tensor(
             mask
         )
 
         return image, mask
 
-    return transform
+
+def get_val_transforms(
+    crop_size: int = 512,
+):
+    return _ValTransform(crop_size=crop_size)
