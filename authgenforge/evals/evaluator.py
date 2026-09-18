@@ -1,6 +1,28 @@
 from __future__ import annotations
 
+import json
+
 from authgenforge import *
+
+from authgenforge.augmentations.presets import (
+    get_val_transforms,
+)
+
+from authgenforge.data.forensics_dataset import (
+    ForensicsDataset,
+)
+
+from authgenforge.networks.dinov3_segmentation import (
+    build_dinov3_segmentation,
+    load_checkpoint,
+)
+
+from authgenforge.options.option_utils import (
+    NoneDict,
+    parse_yml,
+)
+
+from authgenforge.utils.logger import get_logger
 
 
 # ============================================================
@@ -496,57 +518,29 @@ class SegmentationEvaluator:
                 f"in {self.yml_path}"
             )
 
-        # ----------------------------------------------------
-        # IMPORTANT
-        #
-        # The exact dataset class will be wired here once
-        # authgenforge/data/ is finalized.
-        #
-        # This keeps evaluator.py independent from the
-        # underlying storage implementation.
-        # ----------------------------------------------------
-
-        dataset_type = (
+        dataroot = (
             dataset_config[
-                "type"
+                "dataroot"
             ]
         )
 
-        if not dataset_type:
+        if not dataroot:
             raise ValueError(
-                "datasets.test.type is required "
+                "datasets.test.dataroot is required "
                 f"in {self.yml_path}"
             )
 
-        # Dynamic dataset import follows the same general
-        # pattern used by the Authenta video evaluator.
+        # Same ForensicsDataset construction as the training
+        # path's build_forensics_datasets (authgenforge/data/
+        # forensics_dataset.py), using eval_settings.image_size
+        # as the crop size and val (center-crop, no augmentation)
+        # transforms.
 
-        module = importlib.import_module(
-            f"authgenforge.data.{dataset_type}"
-        )
-
-        if not hasattr(
-            module,
-            "ForensicsDataset",
-        ):
-            raise AttributeError(
-                f"authgenforge.data.{dataset_type} "
-                "must expose ForensicsDataset"
-            )
-
-        dataset_class = (
-            module.ForensicsDataset
-        )
-
-        parameters = (
-            dataset_config[
-                "parameters"
-            ]
-            or {}
-        )
-
-        return dataset_class(
-            **parameters
+        return ForensicsDataset(
+            dataroot,
+            transform=get_val_transforms(
+                crop_size=self.image_size
+            ),
         )
 
     # ========================================================
