@@ -16,7 +16,7 @@ from typing import Any, Iterable, Iterator, Sequence
 
 import cv2
 
-cv2.setNumThreads(0)
+cv2.setNumThreads(0)  # cv2's own thread pool isn't reset per DataLoader worker like torch's is — avoids oversubscription across workers
 
 import matplotlib.pyplot as plt
 import numpy as np

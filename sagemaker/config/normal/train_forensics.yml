@@ -1,0 +1,125 @@
+# ============================================================
+# General settings
+# ============================================================
+
+name: train_forensics_v1
+model: dinov3_forensics_lora
+type: binary_segmentation
+data_context: normal
+
+
+# ============================================================
+# Datasets
+# ============================================================
+
+datasets:
+
+  train:
+    dataroot: ""
+    n_workers: 8
+    batch_size: 4
+    crop_size: 512
+    buffer_size: 1000
+    total_samples: null
+    stateful_loader: true
+    pin_memory: true
+
+  test:
+    dataroot: ""
+    n_workers: 4
+    crop_size: 512
+    pin_memory: true
+
+
+# ============================================================
+# Network structure
+# ============================================================
+
+structure:
+
+  backbone:
+    model_path: ""
+    model_type: dinov3_vitl16
+    lora_rank: 32
+    lora_alpha: 64
+    lora_dropout: 0.0
+
+
+# ============================================================
+# Pretraining settings
+# ============================================================
+
+pretraining_settings:
+
+  want_load: false
+  checkpoint_path: ""
+  strict_load: true
+
+
+# ============================================================
+# Epoch settings
+# ============================================================
+
+epoch_settings:
+
+  total_epochs: 10
+
+
+# ============================================================
+# Training settings
+# ============================================================
+
+train_settings:
+
+  # ----------------------------------------------------------
+  # Optimizer
+  # ----------------------------------------------------------
+
+  base_lr: !!float 5e-4
+  weight_decay: !!float 0.05
+  layer_decay: 0.8
+
+
+  # ----------------------------------------------------------
+  # Scheduler
+  # ----------------------------------------------------------
+
+  scheduler_type: annealing
+  warmup_epochs: 0.05
+  warmup_lr: !!float 2.5e-7
+  min_lr: !!float 1e-5
+  T_0_epochs: 2
+
+
+  # ----------------------------------------------------------
+  # Criterion
+  # ----------------------------------------------------------
+
+  criterion: forgery_segmentation
+
+  forgery_segmentation_loss:
+    edge_lambda: 20.0
+
+
+  # ----------------------------------------------------------
+  # Training mechanics
+  # ----------------------------------------------------------
+
+  grad_accum_steps: 8
+  grad_clip: 1.0
+
+  save_interval: 5000
+  log_interval: 100
+
+  mixed_precision: true
+
+
+  # ----------------------------------------------------------
+  # Checkpointing
+  # ----------------------------------------------------------
+
+  save_checkpoint_folder_path: ../../checkpoints
+
+  load_checkpoint_file_path:
+
+  resume_dataloader: true

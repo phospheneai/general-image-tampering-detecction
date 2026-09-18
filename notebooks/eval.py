@@ -12,17 +12,14 @@ sys.path.insert(0, str(PROJ_ROOT))   # make authgenforge importable in any kerne
 # would otherwise be rejected as unrecognized.
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", default=str(PROJ_ROOT / "configs" / "normal" / "train_forensics.yml"),
-                    help="path to a training yml (e.g. configs/normal/train_forensics.yml)")
-parser.add_argument("--end_epoch", type=int, default=10)
+                    help="path to the training yml whose eval_settings block to use")
+parser.add_argument("--device", default="cuda")
 args, _ = parser.parse_known_args()
 
 CONFIG_PATH = args.config
 
 print(f"Config : {CONFIG_PATH}")
-from authgenforge.options.load import load_pipeline_from_yml
+from authgenforge.evals.evaluator import evaluate_from_yml
 
-train_loader, test_loader, model, trainer = load_pipeline_from_yml(CONFIG_PATH)
-
-print(f"Experiment : {trainer.experiment_name}")
-print(f"Checkpoint : {trainer.ckpt_dir}")
-trainer.train_model(end_epoch=args.end_epoch)
+metrics = evaluate_from_yml(CONFIG_PATH, device=args.device)
+print(metrics)

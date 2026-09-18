@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+.Python
 
 # Virtual environments
 .venv/
@@ -23,11 +24,14 @@ Thumbs.db
 
 # Python packaging
 *.egg-info/
+*.egg
+.eggs/
 dist/
 build/
 
 # Logs
 *.log
+logs/
 
 # ML outputs
 checkpoints/
@@ -42,9 +46,14 @@ wandb/
 *.safetensors
 *.bin
 
-# Local datasets
-data/
-datasets/
+# Local datasets (repo root only — do not use an unanchored "data/"
+# here, it would also match and hide the authgenforge/data/ package)
+/data/
+/datasets/
+*.parquet
+*.arrow
+*.cache
+.hf_datasets_cache/
 
 # Environment / secrets
 .env

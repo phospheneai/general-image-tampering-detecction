@@ -45,6 +45,74 @@ def show_image(
     return ax
 
 
+def show_mask_batch(
+    batch,
+    label: str = "",
+    max_images: int | None = None,
+    alpha: float = 0.45,
+) -> None:
+    """
+    Display a grid of image / forgery-mask pairs from a dataloader batch.
+
+    Supports:
+        {"image": ..., "mask": ...}
+
+    The forgery mask is overlaid on the image in red so misaligned
+    image/mask pairs (e.g. a paired augmentation bug) are visible at a
+    glance, rather than shown as a separate panel.
+    """
+    images = batch["image"]
+    masks = batch["mask"]
+
+    n = len(images) if max_images is None else min(len(images), max_images)
+
+    if n == 0:
+        return
+
+    cols = min(8, n)
+    rows = max(1, (n + cols - 1) // cols)
+
+    fig, axes = plt.subplots(
+        rows,
+        cols,
+        figsize=(cols * 2.2, rows * 2.4),
+    )
+
+    axes = np.array(axes).flatten()
+
+    for i in range(n):
+        img = (
+            images[i].cpu().float().clamp(0, 1)
+            .permute(1, 2, 0)
+            .numpy()
+        )
+
+        mask = masks[i].cpu().float().squeeze(0).numpy()
+        forged_frac = float(mask.mean())
+
+        axes[i].imshow(img)
+        axes[i].imshow(
+            np.ma.masked_where(mask < 0.5, mask),
+            cmap="autumn",
+            alpha=alpha,
+        )
+        axes[i].set_title(f"forged {forged_frac:.1%}", fontsize=9)
+        axes[i].axis("off")
+
+    for ax in axes[n:]:
+        ax.axis("off")
+
+    if label:
+        fig.suptitle(
+            label,
+            fontsize=12,
+            fontweight="bold",
+        )
+
+    plt.tight_layout()
+    plt.show()
+
+
 def show_batch(
     batch,
     label: str = "",

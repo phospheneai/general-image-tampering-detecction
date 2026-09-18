@@ -1,0 +1,21 @@
+# Auto-installed by the sagemaker-training toolkit in the container (script mode).
+
+# Not for local dev — scripts/install_deps.sh owns that.
+#
+# The DLC (framework 2.3 / py311, an immutable tag) provides torch/torchvision/
+# cuda + scikit-learn/seaborn/matplotlib/tqdm/pyyaml. Pin only what we add:
+# - numpy 1.26 + opencv < 4.12: the DLC torch is numpy-1.x-ABI; numpy 2 breaks it
+# - accelerate: peft 0.19 needs clear_device_cache (accelerate >= 0.34)
+# - torchdata: only for stateful_loader (mid-epoch spot resume)
+
+transformers==4.57.1
+tokenizers==0.22.2
+huggingface-hub==0.36.2
+peft==0.19.1
+accelerate==1.10.1
+datasets==5.0.0
+torchdata==0.11.0
+numpy==1.26.4
+opencv-python-headless==4.11.0.86
+pillow-heif==1.7.0
+pymupdf==1.28.0

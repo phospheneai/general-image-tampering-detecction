@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import torch
 
-torch.set_num_threads(1)
+torch.set_num_threads(1)  # default (= cpu count) makes tiny per-image ops (ToTensor, normalize) pay huge thread-dispatch overhead
 
 import torch.nn as nn
 import torch.nn.functional as F
