@@ -1,0 +1,21 @@
+#### packages/mdsconverter/validate_dataset.py config — stage 1.
+####
+####   python packages/mdsconverter/validate_dataset.py --config configs/mds/validate_dataset.yml
+####
+#### Decodes every image (and every tampered image's mask) under the
+#### datasets in datasets.yml and writes one row per image to report_out
+#### (status=ok/failed + reason). Touches nothing on disk.
+
+datasets_config: datasets.yml
+
+# TODO(office PC): where the CSV report goes.
+report_out: D:/forensics_raw/_logs/validation_report.csv
+
+# Windows note: each worker is a fresh process (spawn); a few seconds of
+# start-up, then full speed. Leave ~2 cores free if you want to use the PC.
+num_workers: 8
+chunksize: 16
+
+# Reject tampered samples whose mask marks no pixels (would train as a
+# false "authentic").
+check_mask_content: true

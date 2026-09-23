@@ -1,0 +1,40 @@
+#### packages/mdsconverter/build_mds_dataset.py config — stage 3, writes
+#### one MDS dataset per split to <out>/<split>/.
+####
+####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml
+####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --split test
+####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --limit 500   # smoke test
+####
+#### Any CLI flag passed alongside --config overrides that one key here.
+
+datasets_config: datasets.yml
+
+# TODO(office PC): output root -> <out>/train/, <out>/test/
+out: D:/forensics_mds
+
+#### sharding
+shard_size_mb: 256
+# JPEG/PNG are already compressed — zstd mostly burns CPU for little gain.
+compression: null
+hashes: []
+
+#### parallelism
+num_workers: 8
+# Images are small (~100KB-3MB), so 16 in flight per worker is cheap.
+chunksize: 16
+
+#### balance + shuffle
+# Authentic and tampered are shuffled independently with this seed, then
+# interleaved proportionally so every shard keeps the split's global
+# authentic:tampered ratio. Keep fixed for a reproducible build.
+seed: 42
+
+#### failure handling
+# false: pipeline.yml runs validate (+ remediate) first, so re-decoding
+# everything here would repeat that work. Flip to true if you run this
+# config standalone. Tampered images with no mask are skipped either way.
+validate: false
+check_mask_content: true
+
+# Debug: cap samples per split (e.g. 500 for a smoke test). null = no cap.
+limit: null

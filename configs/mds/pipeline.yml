@@ -1,0 +1,27 @@
+#### packages/mdsconverter/run_pipeline.py config — validate -> remediate ->
+#### convert as one run. Each stage runs only if enabled: true; --only /
+#### --skip on the command line override that for a one-off run.
+####
+####   python packages/mdsconverter/run_pipeline.py --config configs/mds/pipeline.yml
+####   python packages/mdsconverter/run_pipeline.py --config configs/mds/pipeline.yml --only validate
+####
+#### config: paths are relative to this file's directory (configs/mds/).
+
+stages:
+  validate:
+    enabled: true
+    config: validate_dataset.yml
+    # split: train   # optional, restrict to one split
+
+  remediate:
+    enabled: true
+    config: remediate_dataset.yml
+    # If validate found failures, stop and ask y/n before remediate +
+    # convert run. Zero failures -> no prompt, proceeds straight through.
+    interactive: true
+    execute: false
+
+  convert:
+    enabled: true
+    config: mds_dataset.yml
+    # split: train

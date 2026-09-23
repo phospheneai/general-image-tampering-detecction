@@ -1,0 +1,46 @@
+#### Shared dataset list for the forensics MDS pipeline — the ONE place to
+#### say where the raw datasets live and which split each belongs to.
+#### validate_dataset.yml and mds_dataset.yml both point here via
+#### `datasets_config: datasets.yml`, so the two stages can never disagree.
+####
+#### Expected layout per dataset (see packages/mdsconverter/README.md):
+####   <data_root>/<name>/images/authentic/<file>
+####   <data_root>/<name>/images/tampered/<file>
+####   <data_root>/<name>/mask/tampered/<file>      (masks/ also accepted)
+
+# TODO(office PC): point at the folder that holds one subfolder per dataset.
+data_root: D:/forensics_raw
+
+# <folder name under data_root>: train | test | skip
+# Splits follow DATASETS.md's Train/Test tables. Keys must match the folder
+# names on disk exactly — TODO(office PC): rename these to your real folder
+# names. A dataset stored elsewhere can override its location:
+#   CASIAv2: {split: train, path: E:/other_drive/CASIAv2}
+datasets:
+  # ---- train ----
+  CASIAv1: train
+  CASIAv2: train
+  FantasticReality: train
+  tampCOCO: train
+  compRAISE: train          # authentic only
+  MISD: train
+  DEFACTO: train            # tampered only
+  LAION-Mobile: train       # authentic only
+  COCO2017: train           # authentic only. DATASETS.md puts val2017 (5k) in
+                            # test: keep it as a separate folder, e.g.
+                            # COCO2017_val: test
+  # ---- test ----
+  IMD2020: test
+  Columbia: test
+  InTheWild: test           # tampered only
+  Korus: test               # "Realistic Tampering"
+  CocoGlide: test
+
+# Stem suffixes tried in order when pairing images/tampered/<stem>.* with
+# mask/tampered/<stem><suffix>.* — "" (exact stem) first. Add whatever
+# convention your releases use (e.g. CASIA's "_gt", Columbia's "_edgemask").
+mask_suffixes: ["", "_gt", "_mask", "_GT", "_Mask", "-mask"]
+
+# Uncomment to override the default extension lists:
+# image_exts: [.jpg, .jpeg, .png, .tif, .tiff, .bmp, .webp]
+# mask_exts: [.png, .bmp, .tif, .tiff, .jpg, .jpeg, .gif]

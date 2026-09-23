@@ -140,24 +140,43 @@ def build_forensics_datasets(
     crop_size: int = 512,
     buffer_size: int = 1000,
     data_context: str = "normal",
-) -> tuple[ForensicsDataset, ForensicsDataset]:
+    data_format: str = "folder",
+) -> tuple[Dataset, Dataset]:
     """
     Build the train/test forgery segmentation datasets.
 
+    data_format selects the backend for both splits:
+        folder -> ForensicsDataset, train_dir/test_dir are
+                  images/ + masks/ folders
+        mds    -> ForensicsMDSDataset, train_dir/test_dir are MDS
+                  split dirs written by
+                  packages/mdsconverter/build_mds_dataset.py
+
     buffer_size and data_context are accepted for interface parity with
-    the streaming, multi-domain Parquet pipeline this folder-based
-    implementation is a bridge toward (see sagemaker/README.md's
-    "Current status" section) — this implementation does not use them.
+    the streaming, multi-domain pipeline (see sagemaker/README.md's
+    "Current status" section) — neither backend uses them yet.
     """
 
-    train_ds = ForensicsDataset(
+    if data_format == "folder":
+        dataset_cls = ForensicsDataset
+    elif data_format == "mds":
+        from authgenforge.data.forensics_mds_dataset import (
+            ForensicsMDSDataset,
+        )
+        dataset_cls = ForensicsMDSDataset
+    else:
+        raise ValueError(
+            f"data_format must be 'folder' or 'mds', got {data_format!r}"
+        )
+
+    train_ds = dataset_cls(
         train_dir,
         transform=get_train_transforms(
             crop_size=crop_size
         ),
     )
 
-    test_ds = ForensicsDataset(
+    test_ds = dataset_cls(
         test_dir,
         transform=get_val_transforms(
             crop_size=crop_size

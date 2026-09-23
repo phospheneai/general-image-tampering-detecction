@@ -8,6 +8,12 @@ model: dinov3_forensics_lora
 type: binary_segmentation
 data_context: normal
 
+# folder -> dataroot is an images/ + masks/ folder (ForensicsDataset)
+# mds    -> dataroot is an MDS split dir, e.g. D:/forensics_mds/train
+#           (ForensicsMDSDataset; build it with configs/mds/pipeline.yml)
+# dataroot may be a list of paths in either mode.
+data_format: folder
+
 
 # ============================================================
 # Datasets

@@ -52,6 +52,7 @@ python -m pip install \
     accelerate==1.10.1 \
     datasets==5.0.0 \
     torchdata==0.11.0 \
+    mosaicml-streaming==0.13.0 \
     opencv-python-headless==4.11.0.86 \
     pillow-heif==1.7.0 \
     pymupdf==1.28.0

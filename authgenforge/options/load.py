@@ -131,6 +131,11 @@ def get_dataloaders_from_yml(
         ),
 
         data_context=data_context,
+
+        data_format=_cfg(
+            opt.get("data_format"),
+            "folder",
+        ),
     )
 
     return (
@@ -626,6 +631,11 @@ def get_sample_from_yml(
         data_context=_cfg(
             opt.get("data_context"),
             "normal",
+        ),
+
+        data_format=_cfg(
+            opt.get("data_format"),
+            "folder",
         ),
     )
 
