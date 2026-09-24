@@ -22,13 +22,12 @@ data_format: folder
 datasets:
 
   # NOTE: train and test currently point at the same CASIA v2 sample
-  # set (D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed,
-  # images/<name>.jpg + masks/<name>.png pairs) for pipeline validation
-  # only — this is not a held-out split. Replace with a real train/test
-  # split before a real training run.
+  # set (images/<name>.jpg + masks/<name>.png pairs) for pipeline
+  # validation only — this is not a held-out split. Replace with a
+  # real train/test split before a real training run.
 
   train:
-    dataroot: "D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed"
+    dataroot: "/home/authenta-03/Aditii/GAP-DinoForensics/forensics_datasets/CASIAV2_processed"
     n_workers: 4
     batch_size: 4
     crop_size: 512
@@ -38,7 +37,7 @@ datasets:
     pin_memory: true
 
   test:
-    dataroot: "D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed"
+    dataroot: "/home/authenta-03/Aditii/GAP-DinoForensics/forensics_datasets/CASIAV2_processed"
     n_workers: 2
     crop_size: 512
     pin_memory: true
