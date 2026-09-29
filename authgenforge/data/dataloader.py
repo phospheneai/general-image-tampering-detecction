@@ -58,6 +58,7 @@ def build_dataloaders(
     train_loader = train_loader_cls(
         train_ds,
         batch_size=batch_size,
+        shuffle=True,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=num_workers > 0,

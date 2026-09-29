@@ -8,12 +8,10 @@
 
 datasets_config: datasets.yml
 
-# TODO(office PC): where the CSV report goes.
-report_out: D:/forensics_raw/_logs/validation_report.csv
+report_out: /home/ubuntu/data/logs/validation_report.csv
 
-# Windows note: each worker is a fresh process (spawn); a few seconds of
-# start-up, then full speed. Leave ~2 cores free if you want to use the PC.
-num_workers: 8
+# nproc (4) minus 2, leaving headroom for the OS and the tmux session.
+num_workers: 2
 chunksize: 16
 
 # Reject tampered samples whose mask marks no pixels (would train as a

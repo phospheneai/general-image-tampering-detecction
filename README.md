@@ -47,7 +47,7 @@ The weights are intentionally **not** committed to Git; see
 authgenforge/
   networks/     DINOv3 ViT-L/16 + LoRA + segmentation head
   losses/       pixel BCE + edge-weighted BCE (forgery segmentation loss)
-  data/         dataset + dataloader builders (Parquet — pending, see below)
+  data/         dataset + dataloader builders (folder and MDS backends)
   augmentations/ PIL/OpenCV-based paired image+mask augmentation pipelines
   optimizers/   optimizer (layer-decay AdamW) + LR scheduler
   options/      yml -> pipeline builders
@@ -172,12 +172,14 @@ Before running, check these fields in
   effective batch size.
 - `epoch_settings.total_epochs` — how long to train.
 
-> The dataset implementation itself
-> (`authgenforge/data/forensics_dataset.py`) is intentionally deferred
-> until the training data's Parquet schema is finalized — see
-> [`sagemaker/README.md`](sagemaker/README.md#current-status). Everything
-> above it in the pipeline (config parsing, model/criterion/optimizer/
-> trainer construction) is wired and testable today.
+> `data_format:` in the yml picks the dataset backend
+> (`_DATASET_BACKENDS` in `authgenforge/options/load.py`): `folder` reads
+> loose `images/` + `masks/` folders (`ForensicsDataset`), `mds` reads the
+> processed MosaicML Streaming shards (`ForensicsMDSDataset`), locally or
+> streamed from S3 — see
+> [`configs/normal/train_forensics_mds.yml`](configs/normal/train_forensics_mds.yml),
+> [MDS_DATASET.md](MDS_DATASET.md) and [DATASET_PIPELINE.md](DATASET_PIPELINE.md)
+> for how processed-v1 is built.
 
 ### Train
 
@@ -278,6 +280,6 @@ Before opening a PR:
 - **Comments explain why, not what.** A hidden constraint, a workaround
   for a specific bug, a version-pin reason. Self-explanatory code doesn't
   get a comment.
-- **Don't invent the data layer ahead of the schema.** `authgenforge/data/`
-  and the Parquet format it will read are intentionally deferred — see
-  `sagemaker/README.md`. Build against it once it lands, not before.
+- **One data format per backend.** A new dataset format is a new sibling
+  module in `authgenforge/data/` plus one entry in `_DATASET_BACKENDS`
+  (`authgenforge/options/load.py`), not a change to calling code.

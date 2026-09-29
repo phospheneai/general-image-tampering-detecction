@@ -42,8 +42,8 @@ Usage:
     python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --split test
 
     # plain CLI, no yaml
-    python packages/mdsconverter/build_mds_dataset.py --data-root D:/forensics_raw \\
-        --datasets CASIAv2:train Columbia:test --out D:/forensics_mds
+    python packages/mdsconverter/build_mds_dataset.py --data-root /home/ubuntu/data/raw/train \\
+        --datasets CASIA_v2:train MISD:train --out /home/ubuntu/data/mds_scratch
 
     # quick smoke test: 500 samples per split
     python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --limit 500

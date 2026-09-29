@@ -1,25 +1,29 @@
 #### packages/mdsconverter/build_mds_dataset.py config — stage 3, writes
 #### one MDS dataset per split to <out>/<split>/.
 ####
-####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml
+####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --split train
 ####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --split test
-####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --limit 500   # smoke test
+####   python packages/mdsconverter/build_mds_dataset.py --config configs/mds/mds_dataset.yml --limit 500 --out /home/ubuntu/data/mds_smoke
 ####
 #### Any CLI flag passed alongside --config overrides that one key here.
 
 datasets_config: datasets.yml
 
-# TODO(office PC): output root -> <out>/train/, <out>/test/
-out: D:/forensics_mds
+# Output root -> <out>/train/, <out>/test/ (+ <split>_failed.csv beside
+# them). Synced as-is to s3://authenta-data-rnd/image-tampering-detection/processed-v1/
+out: /home/ubuntu/data/processed/processed-v1
 
 #### sharding
-shard_size_mb: 256
+# 512 MB (reference repo: 256) — ~900 images per train shard, ~2,150 train
+# shards; fewer, larger objects for S3. Agreed with the team lead.
+shard_size_mb: 512
 # JPEG/PNG are already compressed — zstd mostly burns CPU for little gain.
 compression: null
 hashes: []
 
 #### parallelism
-num_workers: 8
+# nproc (4) minus 2.
+num_workers: 2
 # Images are small (~100KB-3MB), so 16 in flight per worker is cheap.
 chunksize: 16
 
@@ -30,10 +34,13 @@ chunksize: 16
 seed: 42
 
 #### failure handling
-# false: pipeline.yml runs validate (+ remediate) first, so re-decoding
-# everything here would repeat that work. Flip to true if you run this
-# config standalone. Tampered images with no mask are skipped either way.
-validate: false
+# true: every image (and tampered image's mask) is fully decoded with PIL
+# before it's written; anything that fails is skipped and logged to
+# <out>/<split>_failed.csv instead of entering the dataset. On for v1:
+# the Step 6 smoke test found ~0.17% of LAION-Mobile truncated in the raw
+# data (and S3). pipeline.yml's standalone validate stage stays off —
+# this inline check replaces it without touching raw/.
+validate: true
 check_mask_content: true
 
 # Debug: cap samples per split (e.g. 500 for a smoke test). null = no cap.

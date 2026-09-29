@@ -22,9 +22,10 @@ Optional:
                                    the read -> pool -> write path
 
 Usage:
-    python packages/mdsconverter/verify_mds_dataset.py --mds D:/forensics_mds/train
-    python packages/mdsconverter/verify_mds_dataset.py --mds D:/forensics_mds/train \\
-        --decode-check 200 --spot-check 200 --source-root D:/forensics_raw
+    python packages/mdsconverter/verify_mds_dataset.py --mds /home/ubuntu/data/processed/processed-v1/train
+    python packages/mdsconverter/verify_mds_dataset.py --mds /home/ubuntu/data/processed/processed-v1/train \\
+        --decode-check 500 --spot-check 500 \\
+        --source-root /home/ubuntu/data/raw/train /home/ubuntu/data/extracted
 
 Exit code 0 = clean, 1 = mismatches found (see stdout for details).
 """
@@ -52,10 +53,13 @@ def infer_label_from_path(orig_path: str) -> str | None:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mds", required=True, help="Path to one split's MDS dir, e.g. D:/forensics_mds/train")
-    ap.add_argument("--source-root", default=None,
-                     help="data_root the dataset was built from — required for --spot-check "
-                          "(orig_path / mask_orig_path are relative to it).")
+    ap.add_argument("--mds", required=True, help="Path to one split's MDS dir, e.g. /home/ubuntu/data/processed/processed-v1/train")
+    ap.add_argument("--source-root", nargs="+", default=None,
+                     help="Folder(s) holding the dataset folders the split was built from — required "
+                          "for --spot-check (orig_path / mask_orig_path start with the dataset folder "
+                          "name). Give several when datasets came from different places, e.g. "
+                          "/home/ubuntu/data/raw/train /home/ubuntu/data/extracted; the first that "
+                          "has the file wins.")
     ap.add_argument("--spot-check", type=int, default=0,
                      help="Randomly sample N rows and compare image+mask bytes to the originals on disk.")
     ap.add_argument("--decode-check", type=int, default=0,
@@ -131,9 +135,10 @@ def main():
             if s["mask_orig_path"]:
                 pairs.append((s["mask_orig_path"], s["mask"]))
             for rel, stored in pairs:
-                src_path = os.path.join(args.source_root, *rel.split("/"))
-                if not os.path.exists(src_path):
-                    print(f"WARNING: source file missing for spot-check idx={i}: {src_path}")
+                src_path = next((p for p in (os.path.join(r, *rel.split("/")) for r in args.source_root)
+                                 if os.path.exists(p)), None)
+                if src_path is None:
+                    problems.append((i, rel, "spot-check: original not found under any --source-root"))
                     continue
                 with open(src_path, "rb") as f:
                     src_bytes = f.read()

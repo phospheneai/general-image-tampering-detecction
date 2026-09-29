@@ -76,6 +76,43 @@ This matches the sum of the Total column in the Dataset Summary table above, con
 
 ---
 
+## processed-v1 (MDS)
+
+`s3://authenta-data-rnd/image-tampering-detection/processed-v1/{train,test}` — MosaicML Streaming shards (512 MB), built from `s3://authenta-general-image-forgery-dataset/dataset-v1/` by `packages/mdsconverter/` (see [MDS_DATASET.md](MDS_DATASET.md)). Counts are samples actually written.
+
+### Train
+
+| Dataset | Real | Tampered | Total | Skipped |
+|---|---:|---:|---:|---|
+| CASIA v1 | 800 | 919 | 1,719 | 1 mask-size-mismatch |
+| CASIA v2 | 7,437 | 5,105 | 12,542 | 17 mask-size-mismatch |
+| COCO 2017 (train2017) | 282,360 | 0 | 282,360 | — |
+| FantasticReality | 16,592 | 19,423 | 36,015 | — |
+| LAION-Mobile | 671,346 | 0 | 671,346 | 950 truncated image |
+| MISD | 619 | 296 | 915 | — |
+| compRAISE | 24,462 | 0 | 24,462 | — |
+| tampCOCO | 0 | 798,078 | 798,078 | 236 empty mask |
+| **Total** | **1,003,616** | **823,821** | **1,827,437** | **1,204** |
+
+### Test
+
+| Dataset | Real | Tampered | Total | Skipped |
+|---|---:|---:|---:|---|
+| COCO 2017 (val2017) | 5,000 | 0 | 5,000 | — |
+| DEFACTO | 0 | 18,194 | 18,194 | — |
+| IMD2020 | 414 | 1,968 | 2,382 | — |
+| In-the-Wild | 0 | 201 | 201 | — |
+| Realistic Tampering (Korus) | 220 | 220 | 440 | — |
+| CocoGlide | 512 | 512 | 1,024 | — |
+| Columbia | 183 | 180 | 363 | — |
+| **Total** | **6,329** | **21,275** | **27,604** | **0** |
+
+**Grand total (processed-v1): 1,855,041** (1,009,945 real + 845,096 tampered) — 2,108 train + 28 test shards, 1,143.4 GB.
+
+Columbia masks: bright red (camera 1, near the splicing boundary) of `<stem>_edgemask.jpg` = tampered (`packages/mdsconverter/prepare_columbia.py`).
+
+---
+
 ## Forgery-Type Taxonomy
 
 The datasets in this catalog cover the following major manipulation categories:
