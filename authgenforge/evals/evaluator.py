@@ -496,6 +496,49 @@ class SegmentationEvaluator:
                 f"in {self.yml_path}"
             )
 
+        # Default: the same data_format switch training uses
+        # (folder | mds), with the deterministic val transforms at
+        # eval_settings.image_size. A datasets.test.type block keeps
+        # the dynamic-import route below.
+        if not dataset_config.get("type"):
+
+            from authgenforge.augmentations.presets import (
+                get_val_transforms,
+            )
+
+            transform = get_val_transforms(
+                crop_size=self.image_size
+            )
+
+            data_format = (
+                self.opt.get("data_format")
+                or "folder"
+            )
+
+            if data_format == "mds":
+                from authgenforge.data.forensics_mds_dataset import (
+                    ForensicsMDSDataset,
+                )
+                return ForensicsMDSDataset(
+                    dataset_config["dataroot"],
+                    transform=transform,
+                    cache_dir=self.opt.get("cache_dir"),
+                )
+
+            if data_format == "folder":
+                from authgenforge.data.forensics_dataset import (
+                    ForensicsDataset,
+                )
+                return ForensicsDataset(
+                    dataset_config["dataroot"],
+                    transform=transform,
+                )
+
+            raise ValueError(
+                f"data_format must be 'folder' or 'mds', "
+                f"got {data_format!r} in {self.yml_path}"
+            )
+
         # ----------------------------------------------------
         # IMPORTANT
         #

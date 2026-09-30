@@ -6,6 +6,7 @@ checkpoint saving, logging, and inference — without running full epochs.
 Run from the project root:
     python tests/smoke_test_pipeline.py           # CUDA
     python tests/smoke_test_pipeline.py --cpu     # CPU
+    python tests/smoke_test_pipeline.py --config configs/normal/train_forensics_mds.yml   # MDS dataset
 """
 import sys
 import os
@@ -46,6 +47,7 @@ def check(label, fn):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is available")
+    parser.add_argument("--config", default=CONFIG_PATH, help=f"training yml (default: {CONFIG_PATH})")
     args = parser.parse_args()
 
     # ── 1. Imports ────────────────────────────────────────────────────────────
@@ -72,7 +74,7 @@ def main():
     print(f"\n{TITLE}[2] Load pipeline{RESET}")
 
     def _load():
-        tl, vl, m, tr = load_pipeline_from_yml(CONFIG_PATH, steps_per_epoch=N_TRAIN_STEPS)
+        tl, vl, m, tr = load_pipeline_from_yml(args.config, steps_per_epoch=N_TRAIN_STEPS)
         if DEVICE != tr.device:
             tr.device = DEVICE
             tr.model  = m.to(DEVICE)

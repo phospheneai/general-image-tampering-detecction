@@ -58,6 +58,7 @@ def build_dataloaders(
     train_loader = train_loader_cls(
         train_ds,
         batch_size=batch_size,
+        shuffle=True,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=num_workers > 0,
@@ -113,6 +114,7 @@ if __name__ == "__main__":
         f" image={train_batch['image'].shape}"
         f" mask={train_batch['mask'].shape}"
         f" edge_mask={train_batch['edge_mask'].shape}"
+        f" label={train_batch['label'].tolist()}"
     )
 
     test_batch = next(
@@ -124,4 +126,5 @@ if __name__ == "__main__":
         f" image={test_batch['image'].shape}"
         f" mask={test_batch['mask'].shape}"
         f" edge_mask={test_batch['edge_mask'].shape}"
+        f" label={test_batch['label'].tolist()}"
     )

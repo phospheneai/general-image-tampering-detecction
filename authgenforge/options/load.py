@@ -9,6 +9,10 @@ from authgenforge.data.dataloader import (
     build_dataloaders,
 )
 
+from authgenforge.data.forensics_mds_dataloader import (
+    build_mds_dataloaders,
+)
+
 from authgenforge.losses import (
     ForgerySegmentationLoss,
 )
@@ -62,6 +66,29 @@ def _cfg(value, default):
 # Data
 # ------------------------------------------------------------------
 
+# Every backend here accepts the same kwargs (train_dir, test_dir,
+# crop_size, batch_size, num_workers, test_num_workers, pin_memory,
+# buffer_size, stateful, data_context) and returns
+# (train_loader, test_loader) — that's what keeps switching backends a
+# one-line config change (data_format:) instead of a call-site rewrite.
+# Backend-specific extras are passed only to that backend (see
+# _backend_extra_kwargs).
+_DATASET_BACKENDS = {
+    "folder": build_dataloaders,
+    "mds": build_mds_dataloaders,
+}
+
+
+def _backend_extra_kwargs(backend: str, opt: dict) -> dict:
+    if backend == "mds":
+        # only used when a dataroot is an s3:// URL — see
+        # authgenforge/data/forensics_mds_dataset.py
+        return {
+            "cache_dir": opt.get("cache_dir"),
+            "cache_limit": opt.get("cache_limit"),
+        }
+    return {}
+
 
 def get_dataloaders_from_yml(
     yml_path: str,
@@ -91,7 +118,18 @@ def get_dataloaders_from_yml(
         "normal",
     )
 
-    train_loader, test_loader = build_dataloaders(
+    backend = _cfg(
+        opt.get("data_format"),
+        "folder",
+    )
+
+    if backend not in _DATASET_BACKENDS:
+        raise ValueError(
+            f"Unknown data_format={backend!r} in {yml_path}. "
+            f"Available: {sorted(_DATASET_BACKENDS)}"
+        )
+
+    train_loader, test_loader = _DATASET_BACKENDS[backend](
         train_dir=train_cfg["dataroot"],
         test_dir=test_cfg["dataroot"],
 
@@ -132,10 +170,7 @@ def get_dataloaders_from_yml(
 
         data_context=data_context,
 
-        data_format=_cfg(
-            opt.get("data_format"),
-            "folder",
-        ),
+        **_backend_extra_kwargs(backend, opt),
     )
 
     return (
@@ -637,6 +672,8 @@ def get_sample_from_yml(
             opt.get("data_format"),
             "folder",
         ),
+
+        cache_dir=opt.get("cache_dir"),
     )
 
     loader = DataLoader(

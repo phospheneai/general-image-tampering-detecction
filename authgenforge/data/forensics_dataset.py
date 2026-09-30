@@ -85,6 +85,11 @@ class ForensicsDataset(Dataset):
         image = Image.open(image_path).convert("RGB")
         mask = Image.open(mask_path).convert("L")
 
+        # image-level class from the full mask, before any crop can cut
+        # the forged region out: authentic images use an all-zero mask.
+        # Same >127 threshold the MDS converter's empty-mask check uses.
+        label = int(mask.getextrema()[1] > 127)
+
         image, mask = self.transform(image, mask)
 
         edge_mask = _compute_edge_mask(
@@ -96,6 +101,7 @@ class ForensicsDataset(Dataset):
             "image": image,
             "mask": mask,
             "edge_mask": edge_mask,
+            "label": torch.tensor(label, dtype=torch.long),
         }
 
 
@@ -141,6 +147,7 @@ def build_forensics_datasets(
     buffer_size: int = 1000,
     data_context: str = "normal",
     data_format: str = "folder",
+    cache_dir: str | None = None,
 ) -> tuple[Dataset, Dataset]:
     """
     Build the train/test forgery segmentation datasets.
@@ -149,34 +156,38 @@ def build_forensics_datasets(
         folder -> ForensicsDataset, train_dir/test_dir are
                   images/ + masks/ folders
         mds    -> ForensicsMDSDataset, train_dir/test_dir are MDS
-                  split dirs written by
-                  packages/mdsconverter/build_mds_dataset.py
+                  split dirs (or s3:// URLs, streamed into cache_dir)
+                  written by packages/mdsconverter/build_mds_dataset.py
 
     buffer_size and data_context are accepted for interface parity with
     the streaming, multi-domain pipeline (see sagemaker/README.md's
     "Current status" section) — neither backend uses them yet.
     """
 
-    if data_format == "folder":
-        dataset_cls = ForensicsDataset
-    elif data_format == "mds":
+    if data_format == "mds":
         from authgenforge.data.forensics_mds_dataset import (
-            ForensicsMDSDataset,
+            build_forensics_mds_datasets,
         )
-        dataset_cls = ForensicsMDSDataset
-    else:
+        return build_forensics_mds_datasets(
+            train_dir=train_dir,
+            test_dir=test_dir,
+            crop_size=crop_size,
+            cache_dir=cache_dir,
+        )
+
+    if data_format != "folder":
         raise ValueError(
             f"data_format must be 'folder' or 'mds', got {data_format!r}"
         )
 
-    train_ds = dataset_cls(
+    train_ds = ForensicsDataset(
         train_dir,
         transform=get_train_transforms(
             crop_size=crop_size
         ),
     )
 
-    test_ds = dataset_cls(
+    test_ds = ForensicsDataset(
         test_dir,
         transform=get_val_transforms(
             crop_size=crop_size

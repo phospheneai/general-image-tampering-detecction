@@ -3,16 +3,24 @@
 # General settings
 # ============================================================
 
-name: train_forensics_v1
+name: train_forensics_mds_v1
 model: dinov3_forensics_lora
 type: binary_segmentation
 data_context: normal
 
-# folder -> dataroot is an images/ + masks/ folder (ForensicsDataset)
-# mds    -> dataroot is an MDS split dir, e.g. /home/ubuntu/data/processed/processed-v1/train
-#           (ForensicsMDSDataset; see train_forensics_mds.yml)
-# dataroot may be a list of paths in either mode.
-data_format: folder
+# authgenforge/data/forensics_mds_dataset.py's ForensicsMDSDataset
+# (data_format: mds). dataroot is the MDS split output directory itself
+# (built by packages/mdsconverter/build_mds_dataset.py from configs/mds/
+# mds_dataset.yml's out: — one <out>/<split>/ dir per split, holding
+# index.json + shard.*.mds) — or the same split on S3, streamed into
+# cache_dir. A list of roots in either form also works.
+data_format: mds
+
+# Only used for s3:// dataroots. A random-order epoch touches every shard,
+# so leave cache_limit unset (the whole split, ~1 TB for train, stays
+# cached) unless the cache disk is smaller than the split.
+cache_dir: /home/ubuntu/data/mds_cache
+cache_limit: null
 
 
 # ============================================================
@@ -21,24 +29,24 @@ data_format: folder
 
 datasets:
 
-  # NOTE: train and test currently point at the same CASIA v2 sample
-  # set (D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed,
-  # images/<name>.jpg + masks/<name>.png pairs) for pipeline validation
-  # only — this is not a held-out split. Replace with a real train/test
-  # split before a real training run.
-
   train:
-    dataroot: "D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed"
+    dataroot:
+      - /home/ubuntu/data/processed/processed-v1/train
+      # - s3://authenta-data-rnd/image-tampering-detection/processed-v1/train
     n_workers: 4
     batch_size: 4
     crop_size: 512
     buffer_size: 1000
     total_samples: null
+    # StatefulDataLoader (requires torchdata) so a resumed run picks up at
+    # the exact shuffle position instead of restarting the epoch.
     stateful_loader: true
     pin_memory: true
 
   test:
-    dataroot: "D:/ForensicsSAM-main/forensics_datasets/CASIAV2_processed"
+    dataroot:
+      - /home/ubuntu/data/processed/processed-v1/test
+      # - s3://authenta-data-rnd/image-tampering-detection/processed-v1/test
     n_workers: 2
     crop_size: 512
     pin_memory: true
@@ -149,7 +157,7 @@ train_settings:
 
 eval_settings:
 
-  checkpoint_path: ../../checkpoints/train_forensics_v1/train_forensics_v1_best.pth
+  checkpoint_path: ../../checkpoints/train_forensics_mds_v1/train_forensics_mds_v1_best.pth
 
   image_size: 512
   threshold: 0.5
