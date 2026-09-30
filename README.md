@@ -1,17 +1,19 @@
 # General Image Tampering Detection
 
-This project trains the Authenta general image forgery segmentation model — a DINOv3 ViT-L/16 + LoRA backbone with a convolutional head that predicts a per-pixel forgery mask — on **processed-v1**, a 1.86M-image forgery dataset stored in S3 as MosaicML Streaming (MDS) shards.
+This project converts general image forgery datasets (images plus tampering masks) into a MosaicML StreamingDataset-compatible format and trains a forgery segmentation model on it.
 
-It loads the dataset straight into PyTorch (from S3 or a local copy), downloads the model weights, trains, evaluates, and contains the pipeline that built the dataset from the raw sources.
+It scans the dataset folders, pairs every tampered image with its mask, checks that each file decodes, writes shuffled streaming shards per split, verifies the output, and loads it as a PyTorch dataset for training.
 
 ## Features
 
-- **processed-v1 dataset in S3** — 1,827,437 train / 27,604 test images from 15 public forgery datasets, original image and mask bytes (never re-encoded), shuffled and authentic:tampered-balanced 512 MB shards
-- **PyTorch `Dataset`** (`ForensicsMDSDataset`) that streams shards from S3 on demand or reads a local copy, and works with multi-worker and resumable (`StatefulDataLoader`) loaders
-- Each sample gives `image`, `mask`, `edge_mask` and `label` (0 authentic / 1 tampered)
-- Config-driven training and evaluation of the DINOv3 ViT-L/16 + LoRA segmentation model
-- Dataset conversion pipeline (`packages/mdsconverter/`): prepare → validate → convert → verify, raw folders → MDS shards
-- Smoke tests that prove the dataset loads (from S3 and locally) and the pipeline trains
+- Scans one folder per source dataset (`images/authentic`, `images/tampered`, `masks/tampered`) and pairs each tampered image with its mask
+- Assigns each dataset to the train or test split from a single config file
+- Fully decodes every image and mask, skipping broken files and listing them in a CSV
+- Stores the original image and mask bytes (never re-encoded) with the label and metadata
+- Writes shuffled MosaicML StreamingDataset (MDS) shards with the same authentic:tampered ratio in every shard
+- Verifies the generated dataset against the original files
+- Loads the shards as a PyTorch `Dataset` (`image`, `mask`, `edge_mask`, `label`) from a local folder or from S3
+- Trains and evaluates the DINOv3 ViT-L/16 + LoRA segmentation model from a yml config
 
 ## Project Structure
 
@@ -19,208 +21,188 @@ It loads the dataset straight into PyTorch (from S3 or a local copy), downloads 
 .
 ├── authgenforge/
 │   ├── data/
-│   │   ├── forensics_mds_dataset.py     # ForensicsMDSDataset — processed-v1 as a torch Dataset
-│   │   ├── forensics_mds_dataloader.py  # train/test DataLoaders for data_format: mds
-│   │   └── forensics_dataset.py, dataloader.py   # loose images/ + masks/ folders (data_format: folder)
-│   ├── networks/        # DINOv3 ViT-L/16 + LoRA + segmentation head
-│   ├── losses/          # pixel BCE + edge-weighted BCE
-│   ├── augmentations/   # paired image + mask transforms (512 crop)
-│   ├── options/         # yml -> dataloaders, model, trainer (load.py)
-│   ├── training/        # SegmentationTrainer
-│   └── evals/           # evaluation
-├── packages/mdsconverter/   # raw dataset -> processed-v1 MDS shards
+│   │   ├── forensics_mds_dataset.py     # PyTorch Dataset over the MDS shards
+│   │   └── forensics_mds_dataloader.py  # train/test DataLoaders
+│   ├── networks/                        # DINOv3 ViT-L/16 + LoRA segmentation model
+│   ├── losses/
+│   ├── augmentations/
+│   ├── options/                         # builds the training pipeline from a yml
+│   ├── training/
+│   └── evals/
+├── packages/mdsconverter/
+│   ├── prepare_compraise.py             # one-off: unzip compRAISE
+│   ├── prepare_columbia.py              # one-off: Columbia edgemasks -> binary masks
+│   ├── validate_dataset.py
+│   ├── remediate_dataset.py
+│   ├── build_mds_dataset.py
+│   ├── verify_mds_dataset.py
+│   └── run_pipeline.py
 ├── configs/
-│   ├── normal/train_forensics_mds.yml   # training config for processed-v1
-│   ├── normal/train_forensics.yml       # training config for loose folders
-│   └── mds/                             # dataset-conversion configs
-├── notebooks/           # train.py, eval.py launchers
-├── scripts/             # install_deps.sh, download_artifacts.sh
-├── tests/               # smoke_test_s3.py, smoke_test_all_paths.py, smoke_test_mds.py, smoke_test_pipeline.py
-├── sagemaker/           # SageMaker training entry point (see sagemaker/README.md)
-├── DATASETS.md          # per-dataset counts, sizes and splits
-├── MDS_DATASET.md       # dataset format and verification details
-├── DATASET_PIPELINE.md  # how the conversion pipeline is run
+│   ├── mds/
+│   │   ├── datasets.yml                 # which datasets, where, which split
+│   │   ├── mds_dataset.yml              # conversion settings
+│   │   └── pipeline.yml
+│   └── normal/
+│       └── train_forensics_mds.yml      # training config
+├── notebooks/                           # train.py, eval.py
+├── scripts/                             # install_deps.sh, download_artifacts.sh
+├── tests/
 └── README.md
 ```
 
 ## Requirements
 
-- **Python 3.11** (3.12 also works; 3.13+ does not — `numpy==1.26.4` is pinned)
-- `git` and the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-- GitHub access to this private repo
-- AWS credentials with `s3:GetObject` and `s3:ListBucket` on `s3://authenta-data-rnd/image-tampering-detection/processed-v1/`
-- A Hugging Face account that has accepted the [DINOv3 licence](https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m) (model weights)
-- An NVIDIA GPU for training (loading the dataset works on CPU)
+Python 3.11 is recommended (3.12 also works; `numpy==1.26.4` is pinned, so not 3.13+).
 
-Get the code and install the dependencies:
+Install the dependencies:
 
 ```bash
-git clone https://github.com/phospheneai/general-image-tampering-detecction.git
-cd general-image-tampering-detecction
-git checkout processed-v1-dataset        # until it is merged into the default branch
-
 python3.11 -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
-pip install torch torchvision            # or the CUDA build from pytorch.org
-bash scripts/install_deps.sh             # ends with "Authenta dependencies installed successfully."
+pip install torch torchvision
+bash scripts/install_deps.sh
 ```
 
-No `python3.11`? Use `pip install uv && uv venv --python 3.11 .venv` instead of the `python3.11 -m venv` line. Run `source .venv/bin/activate` in every new terminal.
+The project uses the MosaicML Streaming library (`mosaicml-streaming`), installed by `install_deps.sh`.
+
+For training, download the DINOv3 ViT-L/16 backbone (needs a Hugging Face account with access to the model):
+
+```bash
+hf auth login
+bash scripts/download_artifacts.sh
+```
 
 ## Configuration
 
-The training configuration for processed-v1 is [configs/normal/train_forensics_mds.yml](configs/normal/train_forensics_mds.yml).
+The main configuration files are [configs/mds/datasets.yml](configs/mds/datasets.yml) and [configs/mds/mds_dataset.yml](configs/mds/mds_dataset.yml).
 
 Key settings include:
 
-- `data_format`: `mds` for processed-v1 shards (`folder` for loose `images/` + `masks/` folders)
-- `datasets.train.dataroot` / `datasets.test.dataroot`: an S3 URL or a local folder per split
-- `cache_dir`: where shards streamed from S3 are cached (a full train epoch needs ~1.2 TB free)
-- `datasets.train.batch_size`, `n_workers`, `crop_size`: loader settings (images are cropped to `crop_size` when loaded; stored images are full size)
-- `structure.backbone.model_path`: the DINOv3 weights folder
-- `epoch_settings.total_epochs`, `train_settings.*`: training schedule, learning rate, loss
-- `eval_settings.checkpoint_path`: the checkpoint to evaluate
+- `data_root`: folder holding one subfolder per dataset
+- `datasets`: each dataset and its split (`train` / `test` / `skip`), or `{split, path}` for a dataset stored elsewhere
+- `mask_suffixes`: filename suffixes tried when pairing a tampered image with its mask
+- `out`: output root; one MDS dataset per split is written to `<out>/<split>/`
+- `shard_size_mb`: maximum size of each shard
+- `num_workers`: number of worker processes
+- `seed`: shuffle seed, for a reproducible build
+- `validate`: fully decode every image and mask before writing it
+- `limit`: cap the number of samples per split (for a quick test)
 
 Example:
 
 ```yaml
-data_format: mds
-cache_dir: /data/mds_cache
-
+# datasets.yml
+data_root: "/path/to/raw/train"
 datasets:
-  train:
-    dataroot:
-      - s3://authenta-data-rnd/image-tampering-detection/processed-v1/train
-      # - /home/ubuntu/data/processed/processed-v1/train     # local copy instead
-    n_workers: 4
-    batch_size: 4
-    crop_size: 512
-  test:
-    dataroot:
-      - s3://authenta-data-rnd/image-tampering-detection/processed-v1/test
-    n_workers: 2
-    crop_size: 512
+  CASIA_v2: train
+  tampCOCO: train
+  COCO2017_test: {split: test, path: "/path/to/raw/test/COCO2017"}
+  IMD2020: {split: test, path: "/path/to/raw/test/IMD2020"}
+mask_suffixes: ["", "_mask"]
 
-structure:
-  backbone:
-    model_path: ../../artifacts/mirror/dinov3-vitl16
+# mds_dataset.yml
+datasets_config: datasets.yml
+out: "/path/to/processed/processed-v1"
+shard_size_mb: 512
+num_workers: 2
+seed: 42
+validate: true
+limit: null
 ```
 
-The file ships pointing at the local copy on the team EC2 instance (`/home/ubuntu/data/processed/processed-v1/`). Paths resolve relative to the yml file; `s3://` URLs are used as-is. The dataset-conversion settings are in [configs/mds/](configs/mds/) (see [DATASET_PIPELINE.md](DATASET_PIPELINE.md)).
+The training configuration is [configs/normal/train_forensics_mds.yml](configs/normal/train_forensics_mds.yml): set `datasets.train.dataroot` and `datasets.test.dataroot` to `<out>/train` and `<out>/test` (or `s3://...` paths plus `cache_dir`).
 
 ## Usage
 
-From the repository root, with the environment active:
-
-**1. Set your AWS profile** (create it once with `aws configure --profile <your-profile>`; type the keys into the terminal only)
+From the repository root, run:
 
 ```bash
-export AWS_PROFILE=<your-profile>
-aws s3 ls s3://authenta-data-rnd/image-tampering-detection/processed-v1/
-# expected:  PRE test/   PRE train/   train_failed.csv
+python packages/mdsconverter/prepare_compraise.py     # one-off, only for compRAISE
+python packages/mdsconverter/prepare_columbia.py      # one-off, only for Columbia
+python packages/mdsconverter/run_pipeline.py --config configs/mds/pipeline.yml
 ```
 
-**2. Check the dataset loads in PyTorch from S3** (~30 s, downloads 1 GB to a temp folder and deletes it)
+This will:
+
+1. Load the YAML configuration
+2. Scan the dataset folders and pair each tampered image with its mask
+3. Decode every image and mask, skipping broken files
+4. Shuffle each split and balance authentic and tampered samples across shards
+5. Write MDS shards to `<out>/train/` and `<out>/test/`
+
+Verify each split:
 
 ```bash
-python tests/smoke_test_s3.py
-# ... torch Dataset: yes | samples: 1,827,437 ... batch 0: image=(8, 3, 512, 512), mask=(8, 1, 512, 512), edge_mask=(8, 1, 512, 512), label=(8,) ... PASS
+python packages/mdsconverter/verify_mds_dataset.py --mds /path/to/processed/processed-v1/train \
+    --decode-check 500 --spot-check 500 --source-root /path/to/raw/train /path/to/extracted
 ```
 
-With a local copy, also check every loading path (local + S3, training config, workers, resume):
+(`--source-root` takes every folder the split's datasets came from, e.g. the raw folder plus the folder the prepare scripts wrote to.)
 
-```bash
-python tests/smoke_test_all_paths.py --local-root /home/ubuntu/data/processed/processed-v1
-# ... 12/12 passed  PASS
-```
-
-**3. Load it in your own code**
+Load the dataset in PyTorch:
 
 ```python
 from torch.utils.data import DataLoader
 from authgenforge.data.forensics_mds_dataset import ForensicsMDSDataset
 from authgenforge.augmentations.presets import get_train_transforms
 
-ds = ForensicsMDSDataset("s3://authenta-data-rnd/image-tampering-detection/processed-v1/train",
-                         transform=get_train_transforms(crop_size=512),
-                         cache_dir="/data/mds_cache")   # or a local folder, without cache_dir
+ds = ForensicsMDSDataset("/path/to/processed/processed-v1/train",
+                         transform=get_train_transforms(crop_size=512))
 loader = DataLoader(ds, batch_size=8, shuffle=True, num_workers=4)
-batch = next(iter(loader))    # image (8,3,512,512), mask (8,1,512,512), edge_mask (8,1,512,512), label (8,)
-print(ds.get_raw(0)["label_str"], ds.get_raw(0)["dataset"])   # stored metadata of a sample
+batch = next(iter(loader))
 ```
 
-**4. Download the model weights** (DINOv3 ViT-L/16 backbone, ~1.2 GB)
+To read the same shards from S3, pass the `s3://` path of the split and a local `cache_dir`.
+
+Train and evaluate:
 
 ```bash
-hf auth login                          # paste a Hugging Face read token
-bash scripts/download_artifacts.sh     # -> artifacts/mirror/dinov3-vitl16/{config.json, model.safetensors}
-```
-
-**5. Train**
-
-```bash
-python tests/smoke_test_pipeline.py --config configs/normal/train_forensics_mds.yml   # a few real steps first
 python notebooks/train.py --config configs/normal/train_forensics_mds.yml --end_epoch 10
-```
-
-**6. Evaluate**
-
-```bash
 python notebooks/eval.py --config configs/normal/train_forensics_mds.yml
 ```
 
-This will:
+Check that everything works:
 
-1. Connect to S3 with your profile and confirm access to processed-v1
-2. Stream the dataset (only the shards that are read) and check it loads as a PyTorch `Dataset`
-3. Download the DINOv3 backbone weights from Hugging Face
-4. Build the DataLoaders, model, loss and optimizer from the yml and train, saving checkpoints
-5. Evaluate the best checkpoint on the test split (pixel-level IoU, F1, precision, recall, accuracy)
-
-To rebuild processed-v1 from the raw dataset instead, see [DATASET_PIPELINE.md](DATASET_PIPELINE.md) (`python packages/mdsconverter/run_pipeline.py --config configs/mds/pipeline.yml`).
+```bash
+python tests/smoke_test_mds.py                                               # the converter
+python tests/smoke_test_all_paths.py --skip-s3 --local-root /path/to/processed/processed-v1   # loading
+```
 
 ## Output
 
-The dataset in S3 (a local copy has the same layout):
+The converter writes one MDS dataset per split under the configured `out` directory.
+
+Typical output structure:
 
 ```text
-s3://authenta-data-rnd/image-tampering-detection/processed-v1/
+processed-v1/
 ├── train/
 │   ├── index.json
-│   └── shard.00000.mds … shard.02107.mds    # 2,108 × 512 MB, 1,827,437 samples
+│   └── shard.00000.mds …
 ├── test/
 │   ├── index.json
-│   └── shard.00000.mds … shard.00027.mds    # 28 × 512 MB, 27,604 samples
-└── train_failed.csv                         # 1,204 broken raw files left out, with reasons
+│   └── shard.00000.mds …
+└── train_failed.csv
 ```
 
-Each sample returned by `ForensicsMDSDataset`:
+If some images fail during processing, they are listed with the reason in `<split>_failed.csv`.
 
-| key | type / shape | meaning |
+Each sample loaded by `ForensicsMDSDataset` contains:
+
+| key | shape | meaning |
 |---|---|---|
-| `image` | float32 `(3, 512, 512)` | RGB, values 0–1 |
-| `mask` | float32 `(1, 512, 512)` | 1 = tampered pixel; all zero for authentic |
-| `edge_mask` | float32 `(1, 512, 512)` | band around the tampered region's boundary |
+| `image` | `(3, 512, 512)` float32 | RGB image, values 0–1 |
+| `mask` | `(1, 512, 512)` float32 | 1 = tampered pixel, all zero for authentic |
+| `edge_mask` | `(1, 512, 512)` float32 | boundary band of the tampered region |
 | `label` | int64 | 0 = authentic, 1 = tampered |
 
-Training writes under `checkpoints/<name>/`:
-
-```text
-checkpoints/train_forensics_mds_v1/
-├── latest_checkpoint.pth                 # full state, for resuming
-├── train_forensics_mds_v1_best.pth       # best validation IoU — used by eval
-├── epoch{N}.pth
-└── <run_tag>/logs/, plots/, predictions/
-```
+Training writes checkpoints and logs to `checkpoints/<name>/`.
 
 ## Notes
 
-- **On the team EC2 instance the machine's own AWS role cannot read the bucket** — always `export AWS_PROFILE=...` first. Without it you get `403 Forbidden` or `index.json not found!`.
-- Streaming with `shuffle=True` is slow at first (each random sample can pull a different 512 MB shard) and a full epoch caches the whole split under `cache_dir`; use `shuffle=False` for quick checks.
-- `crop_size` can be changed freely (e.g. 384, 768) — stored images are full size, so no rebuild is needed.
-- Per-dataset counts and sizes: [DATASETS.md](DATASETS.md). Format, columns and verification: [MDS_DATASET.md](MDS_DATASET.md). Columbia masks mark bright red (camera 1 near the splice boundary) as tampered.
-- The model weights are not committed to Git; `download_artifacts.sh` fetches them. Trained checkpoints stay under `checkpoints/` (also not in Git).
-- `UserWarning: 'set_vital' is deprecated` and `pin_memory ... no accelerator` are harmless.
-- `ModuleNotFoundError`: run from the repo root with the environment active, and re-run `bash scripts/install_deps.sh` if a package is missing.
-- For SageMaker training jobs see [sagemaker/README.md](sagemaker/README.md).
+- The converter expects the source datasets to be accessible locally.
+- Labels come from the folder names `authentic` and `tampered`.
+- You may need to adjust the config paths to match your environment.
+- Images are stored at full size; `crop_size` in the training config only sets the crop used when loading.
+- processed-v1 (1,827,437 train / 27,604 test images) is available at `s3://authenta-data-rnd/image-tampering-detection/processed-v1/`; reading it needs AWS credentials with access to that bucket.
+- Per-dataset counts: [DATASETS.md](DATASETS.md). Format and pipeline details: [MDS_DATASET.md](MDS_DATASET.md), [DATASET_PIPELINE.md](DATASET_PIPELINE.md).
