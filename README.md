@@ -7,6 +7,9 @@ It ships with a DINOv3 ViT-L/16 + LoRA backbone and a lightweight
 convolutional segmentation head, predicting a dense per-pixel binary
 forgery mask (`B x 1 x H x W`) rather than an image-level real/fake label.
 
+> **processed-v1 dataset:** how to check it and load it in PyTorch (local or
+> from S3) — [PROCESSED_V1_README.md](PROCESSED_V1_README.md).
+
 ## Contents
 
 - [1. Installation](#1-installation)

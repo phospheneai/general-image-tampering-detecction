@@ -85,6 +85,11 @@ class ForensicsDataset(Dataset):
         image = Image.open(image_path).convert("RGB")
         mask = Image.open(mask_path).convert("L")
 
+        # image-level class from the full mask, before any crop can cut
+        # the forged region out: authentic images use an all-zero mask.
+        # Same >127 threshold the MDS converter's empty-mask check uses.
+        label = int(mask.getextrema()[1] > 127)
+
         image, mask = self.transform(image, mask)
 
         edge_mask = _compute_edge_mask(
@@ -96,6 +101,7 @@ class ForensicsDataset(Dataset):
             "image": image,
             "mask": mask,
             "edge_mask": edge_mask,
+            "label": torch.tensor(label, dtype=torch.long),
         }
 
 

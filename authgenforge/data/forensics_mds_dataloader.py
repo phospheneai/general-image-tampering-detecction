@@ -119,4 +119,5 @@ if __name__ == "__main__":
             f" image={tuple(batch['image'].shape)}"
             f" mask={tuple(batch['mask'].shape)}"
             f" edge_mask={tuple(batch['edge_mask'].shape)}"
+            f" label={batch['label'].tolist()}"
         )

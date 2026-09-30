@@ -54,11 +54,14 @@ def resolve_path(path, base_dir=None):
     """
     Resolve a relative path against base_dir.
 
-    Absolute paths are returned unchanged.
+    Absolute paths and URLs (s3://..., gs://...) are returned unchanged.
     """
 
     if path is None:
         return None
+
+    if "://" in str(path):
+        return str(path)
 
     path = Path(path)
 
