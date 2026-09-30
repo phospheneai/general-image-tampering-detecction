@@ -10,106 +10,72 @@ The datasets include both traditional and synthetic manipulations. Some datasets
 
 ## Dataset Summary
 
-| Dataset | Real | Tampered | Total | Forgery Type |
-|---|---:|---:|---:|---|
-| [CASIA v2](#casia-v2) | 7,491 | 5,123 | 12,614 | Copy-move, splicing |
-| [IMD2020](#imd2020) | 414 | 2,010 | 2,424 | Splicing, copy-move, removal |
-| [FantasticReality](#fantasticreality) | 16,592 | 19,423 | 36,015 | Splicing |
-| [tampCOCO](#tampcoco) | 0 | 799,441* | 799,441* | Copy-move, splicing |
-| [compRAISE](#compraise) | 24,462 | 0 | 24,462 | Pristine/source images; compression-related forensic artifacts |
-| [MISD](#misd) | 618 | 300 | 918 | Multiple-image splicing |
-| [Columbia](#columbia) | 183 | 180 | 363 | Splicing |
-| [In-the-Wild](#in-the-wild) | 0 | 201 | 201 | Real-world splicing |
-| [Realistic Tampering (Korus)](#realistic-tampering-korus) | 220 | 220 | 440 | Object insertion, object removal |
-| [CASIA v1](#casia-v1) | 800 | 920† | 1,720† | Copy-move, splicing |
-| [COCO 2017](#coco-2017) | 123,287 | 0 | 123,287 | Source imagery |
-| [LAION-Mobile](#laion-mobile) | 822,296 | 0 | 822,296 | Pristine/natural images; source imagery |
-| [CocoGlide](#cocoglide) | 512 | 512 | 1,024 | AI-based object replacement / inpainting |
-| [DEFACTO](#defacto) | 0 | 149,000 | 149,000 | Splicing, copy-move, removal/inpainting |
+Counts below are what is actually in **processed-v1** — the dataset built from `s3://authenta-general-image-forgery-dataset/dataset-v1/` and stored as MosaicML Streaming shards at `s3://authenta-data-rnd/image-tampering-detection/processed-v1/{train,test}` (see [MDS_DATASET.md](MDS_DATASET.md)). Size is the dataset's image + mask bytes, stored unchanged in the shards.
 
-\* Published descriptions commonly refer to tampCOCO as approximately 800K images. The count used here is 799,441 for the cataloged version.
+| Dataset | Split | Real | Tampered | Total | Size | Forgery Type |
+|---|---|---:|---:|---:|---:|---|
+| [CASIA v1](#casia-v1) | train | 800 | 919 | 1,719 | 0.07 GB | Copy-move, splicing |
+| [CASIA v2](#casia-v2) | train | 7,437 | 5,105 | 12,542 | 3.47 GB | Copy-move, splicing |
+| [COCO 2017](#coco-2017) (train2017) | train | 282,360 | 0 | 282,360 | 46.05 GB | Source imagery |
+| [FantasticReality](#fantasticreality) | train | 16,592 | 19,423 | 36,015 | 5.94 GB | Splicing |
+| [LAION-Mobile](#laion-mobile) | train | 671,346 | 0 | 671,346 | 955.58 GB | Pristine/natural images; source imagery |
+| [MISD](#misd) | train | 619 | 296 | 915 | 0.06 GB | Multiple-image splicing |
+| [compRAISE](#compraise) | train | 24,462 | 0 | 24,462 | 65.15 GB | Pristine/source images; compression-related forensic artifacts |
+| [tampCOCO](#tampcoco) | train | 0 | 798,078 | 798,078 | 52.91 GB | Copy-move, splicing |
+| [COCO 2017](#coco-2017) (val2017) | test | 5,000 | 0 | 5,000 | 0.82 GB | Source imagery |
+| [DEFACTO](#defacto) | test | 0 | 18,194 | 18,194 | 10.50 GB | Splicing, copy-move, removal/inpainting |
+| [IMD2020](#imd2020) | test | 414 | 1,968 | 2,382 | 0.60 GB | Splicing, copy-move, removal |
+| [In-the-Wild](#in-the-wild) | test | 0 | 201 | 201 | 0.09 GB | Real-world splicing |
+| [Realistic Tampering (Korus)](#realistic-tampering-korus) | test | 220 | 220 | 440 | 1.61 GB | Object insertion, object removal |
+| [CocoGlide](#cocoglide) | test | 512 | 512 | 1,024 | 0.12 GB | AI-based object replacement / inpainting |
+| [Columbia](#columbia) | test | 183 | 180 | 363 | 0.81 GB | Splicing |
 
-† CASIA v1 is reported as 920 tampered images in several commonly used dataset lists; some sources report 921. This catalog uses 920 and records the discrepancy in the dataset notes.
+Upstream release sizes differ from these counts for several datasets (e.g. DEFACTO, LAION-Mobile, COCO 2017) — the per-dataset sections below describe the full upstream releases; the tables here describe the subset in dataset-v1 / processed-v1.
 
 ---
 
 ## Train
 
-| Dataset | Real | Tampered | Total |
-|---|---:|---:|---:|
-| CASIA v2 | 7,491 | 5,123 | 12,614 |
-| FantasticReality | 16,592 | 19,423 | 36,015 |
-| tampCOCO | — | 799,441 | 799,441 |
-| compRAISE | 24,462 | 0 | 24,462 |
-| MISD | 618 | 300 | 918 |
-| CASIA v1 | 800 | 920 | 1,720 |
-| COCO 2017 | 118,287 | 0 | 118,287 |
-| DEFACTO | 0 | 149,000 | 149,000 |
-| LAION-Mobile | 822,296 | 0 | 822,296 |
-| **TOTAL** | **990,546** | **974,207** | **1,964,753** |
+`processed-v1/train` — 2,108 shards × 512 MB, 1,128.9 GB.
 
-*Note: CocoGlide is not included in Train — see the Test table below. It is a fixed benchmark set, not typically used for training.*
+| Dataset | Real | Tampered | Total | Size | Skipped |
+|---|---:|---:|---:|---:|---|
+| CASIA v1 | 800 | 919 | 1,719 | 0.07 GB | 1 mask-size-mismatch |
+| CASIA v2 | 7,437 | 5,105 | 12,542 | 3.47 GB | 17 mask-size-mismatch |
+| COCO 2017 (train2017) | 282,360 | 0 | 282,360 | 46.05 GB | — |
+| FantasticReality | 16,592 | 19,423 | 36,015 | 5.94 GB | — |
+| LAION-Mobile | 671,346 | 0 | 671,346 | 955.58 GB | 950 truncated image |
+| MISD | 619 | 296 | 915 | 0.06 GB | — |
+| compRAISE | 24,462 | 0 | 24,462 | 65.15 GB | — |
+| tampCOCO | 0 | 798,078 | 798,078 | 52.91 GB | 236 empty mask |
+| **TOTAL** | **1,003,616** | **823,821** | **1,827,437** | **1,129.2 GB** | **1,204** |
 
 ---
 
 ## Test
 
-| Dataset | Real | Tampered | Total |
-|---|---:|---:|---:|
-| IMD2020 | 414 | 2,010 | 2,424 |
-| Columbia | 183 | 180 | 363 |
-| In-the-Wild | 0 | 201 | 201 |
-| Realistic Tampering (Korus) | 220 | 220 | 440 |
-| COCO 2017 | 5,000 | 0 | 5,000 |
-| CocoGlide | 512 | 512 | 1,024 |
-| **TOTAL** | **6,329** | **3,123** | **9,452** |
+`processed-v1/test` — 28 shards × 512 MB, 14.6 GB.
+
+| Dataset | Real | Tampered | Total | Size |
+|---|---:|---:|---:|---:|
+| COCO 2017 (val2017) | 5,000 | 0 | 5,000 | 0.82 GB |
+| DEFACTO | 0 | 18,194 | 18,194 | 10.50 GB |
+| IMD2020 | 414 | 1,968 | 2,382 | 0.60 GB |
+| In-the-Wild | 0 | 201 | 201 | 0.09 GB |
+| Realistic Tampering (Korus) | 220 | 220 | 440 | 1.61 GB |
+| CocoGlide | 512 | 512 | 1,024 | 0.12 GB |
+| Columbia | 183 | 180 | 363 | 0.81 GB |
+| **TOTAL** | **6,329** | **21,275** | **27,604** | **14.55 GB** |
 
 ---
 
 ## Grand Total (Train + Test)
 
-| | Real | Tampered | Total |
-|---|---:|---:|---:|
-| **Combined** | **174,579** | **977,330** | **1,151,909** |
+| | Real | Tampered | Total | Size |
+|---|---:|---:|---:|---:|
+| **Combined** | **1,009,945** | **845,096** | **1,855,041** | **1,143.4 GB** |
 
-This matches the sum of the Total column in the Dataset Summary table above, confirming the Train/Test split is internally consistent.
-
----
-
-## processed-v1 (MDS)
-
-`s3://authenta-data-rnd/image-tampering-detection/processed-v1/{train,test}` — MosaicML Streaming shards (512 MB), built from `s3://authenta-general-image-forgery-dataset/dataset-v1/` by `packages/mdsconverter/` (see [MDS_DATASET.md](MDS_DATASET.md)). Counts are samples actually written.
-
-### Train
-
-| Dataset | Real | Tampered | Total | Skipped |
-|---|---:|---:|---:|---|
-| CASIA v1 | 800 | 919 | 1,719 | 1 mask-size-mismatch |
-| CASIA v2 | 7,437 | 5,105 | 12,542 | 17 mask-size-mismatch |
-| COCO 2017 (train2017) | 282,360 | 0 | 282,360 | — |
-| FantasticReality | 16,592 | 19,423 | 36,015 | — |
-| LAION-Mobile | 671,346 | 0 | 671,346 | 950 truncated image |
-| MISD | 619 | 296 | 915 | — |
-| compRAISE | 24,462 | 0 | 24,462 | — |
-| tampCOCO | 0 | 798,078 | 798,078 | 236 empty mask |
-| **Total** | **1,003,616** | **823,821** | **1,827,437** | **1,204** |
-
-### Test
-
-| Dataset | Real | Tampered | Total | Skipped |
-|---|---:|---:|---:|---|
-| COCO 2017 (val2017) | 5,000 | 0 | 5,000 | — |
-| DEFACTO | 0 | 18,194 | 18,194 | — |
-| IMD2020 | 414 | 1,968 | 2,382 | — |
-| In-the-Wild | 0 | 201 | 201 | — |
-| Realistic Tampering (Korus) | 220 | 220 | 440 | — |
-| CocoGlide | 512 | 512 | 1,024 | — |
-| Columbia | 183 | 180 | 363 | — |
-| **Total** | **6,329** | **21,275** | **27,604** | **0** |
-
-**Grand total (processed-v1): 1,855,041** (1,009,945 real + 845,096 tampered) — 2,108 train + 28 test shards, 1,143.4 GB.
-
-Columbia masks: bright red (camera 1, near the splicing boundary) of `<stem>_edgemask.jpg` = tampered (`packages/mdsconverter/prepare_columbia.py`).
+Skipped files (not in processed-v1; listed with reasons in `processed-v1/train_failed.csv`): 1,204, all in train. Columbia masks are derived from `<stem>_edgemask.jpg` — bright red (camera 1, near the splicing boundary) = tampered — by `packages/mdsconverter/prepare_columbia.py`; compRAISE is extracted from `compRAISE_full.zip` by `prepare_compraise.py`.
 
 ---
 
