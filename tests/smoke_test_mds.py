@@ -12,11 +12,13 @@ Smoke test for the MDS data path, end to end on a tiny synthetic dataset:
      tampered samples carry a non-empty mask
 
 With --remote s3://.../<split> it also streams that split from S3 into a
-fresh cache dir and loads a few batches the same way.
+fresh temp cache dir and loads a few batches in order (only the first shard
+is downloaded). S3 credentials come from boto3's default chain, e.g.
+AWS_PROFILE=<profile> when the machine's instance role can't read the bucket.
 
 Run from the project root:
     ~/venv/bin/python tests/smoke_test_mds.py
-    ~/venv/bin/python tests/smoke_test_mds.py --remote s3://authenta-data-rnd/image-tampering-detection/processed-v1/test
+    AWS_PROFILE=<profile> ~/venv/bin/python tests/smoke_test_mds.py --remote s3://authenta-data-rnd/image-tampering-detection/processed-v1/train
 """
 
 import argparse
@@ -84,8 +86,8 @@ def run(cmd):
     return r.stdout
 
 
-def check_loader(ds, n_batches=2, batch_size=4):
-    loader = DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=2)
+def check_loader(ds, n_batches=2, batch_size=4, shuffle=True):
+    loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=2)
     for b, batch in enumerate(loader):
         assert set(batch) == {"image", "mask", "edge_mask"}, sorted(batch)
         bs = batch["image"].shape[0]
@@ -154,7 +156,14 @@ def main():
         with tempfile.TemporaryDirectory() as cache:
             ds = ForensicsMDSDataset(args.remote, transform=get_val_transforms(crop_size=CROP),
                                      cache_dir=cache)
-            check_loader(ds, n_batches=3, batch_size=8)
+            assert len(ds) > 0
+            raw0 = ds.get_raw(0)
+            print(f"    {len(ds):,} samples; sample 0: {raw0['dataset']} / {raw0['label_str']} / "
+                  f"{raw0['width']}x{raw0['height']}")
+            # in order, not shuffled: consecutive samples share a shard, so
+            # this only downloads the first 512 MB shard instead of one
+            # shard per random sample
+            check_loader(ds, n_batches=3, batch_size=8, shuffle=False)
 
     print("\nPASS")
 
