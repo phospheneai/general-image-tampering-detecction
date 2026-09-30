@@ -6,10 +6,10 @@ For each split (train, test):
   1. opens s3://.../processed-v1/<split> with a fresh, empty cache dir
   2. checks it is a torch Dataset with the expected number of samples
   3. reads sample metadata (dataset, label, original path, original size)
-  4. checks a tampered sample comes back with a non-empty mask and an
-     authentic one with an all-zero mask
-  5. loads batches with DataLoader(num_workers=4) and checks keys, shapes,
-     dtypes and value ranges
+  4. checks a tampered sample comes back with label 1 and a non-empty mask,
+     and an authentic one with label 0 and an all-zero mask
+  5. loads batches with DataLoader(num_workers=4) and checks keys
+     (image, mask, edge_mask, label), shapes, dtypes and value ranges
 
 Samples are read in order, so each split only downloads its first shard
 (512 MB) plus index.json. The cache dir is deleted at the end.
@@ -62,21 +62,29 @@ def check_split(split, crop, cache_dir, n_batches, batch_size):
         if len(seen) == 2:
             break
     for label, i in sorted(seen.items()):
-        marked = ds[i]["mask"].sum().item() > 0
+        item = ds[i]
+        marked = item["mask"].sum().item() > 0
         assert marked == (label == "tampered"), f"{label} sample {i}: mask marked={marked}"
-        print(f"  {label:9s} sample {i}: mask {'has tampered pixels' if marked else 'all zero'} ✓")
+        assert item["label"].item() == (label == "tampered"), f"{label} sample {i}: label={item['label']}"
+        print(f"  {label:9s} sample {i}: label={item['label'].item()}, "
+              f"mask {'has tampered pixels' if marked else 'all zero'} ✓")
 
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=4)
     for b, batch in enumerate(loader):
-        assert set(batch) == {"image", "mask", "edge_mask"}, sorted(batch)
+        assert set(batch) == {"image", "mask", "edge_mask", "label"}, sorted(batch)
         bs = batch["image"].shape[0]
         assert batch["image"].shape == (bs, 3, crop, crop), batch["image"].shape
         assert batch["mask"].shape == (bs, 1, crop, crop), batch["mask"].shape
         assert batch["edge_mask"].shape == (bs, 1, crop, crop), batch["edge_mask"].shape
-        for k, v in batch.items():
+        for k in ("image", "mask", "edge_mask"):
+            v = batch[k]
             assert v.dtype == torch.float32, (k, v.dtype)
             assert torch.isfinite(v).all() and 0.0 <= v.min() and v.max() <= 1.0, k
-        print(f"  batch {b}: " + ", ".join(f"{k}={tuple(v.shape)}" for k, v in batch.items()))
+        assert batch["label"].shape == (bs,) and batch["label"].dtype == torch.int64, batch["label"]
+        assert set(batch["label"].tolist()) <= {0, 1}, batch["label"]
+        assert (batch["mask"][batch["label"] == 0] == 0).all(), "authentic sample with a non-zero mask"
+        print(f"  batch {b}: " + ", ".join(f"{k}={tuple(v.shape)}" for k, v in batch.items())
+              + f"  labels={batch['label'].tolist()}")
         if b + 1 >= n_batches:
             break
 

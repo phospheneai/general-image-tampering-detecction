@@ -8,7 +8,8 @@ Smoke test for the MDS data path, end to end on a tiny synthetic dataset:
   3. checks the stored image/mask bytes are byte-identical to the files
      (nothing re-encoded)
   4. loads the shards through ForensicsMDSDataset + a num_workers=2
-     DataLoader and checks keys, shapes, dtypes, value ranges, and that
+     DataLoader and checks keys (image, mask, edge_mask, label), shapes,
+     dtypes, value ranges, that labels match the stored column, and that
      tampered samples carry a non-empty mask
 
 With --remote s3://.../<split> it also streams that split from S3 into a
@@ -89,7 +90,7 @@ def run(cmd):
 def check_loader(ds, n_batches=2, batch_size=4, shuffle=True):
     loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=2)
     for b, batch in enumerate(loader):
-        assert set(batch) == {"image", "mask", "edge_mask"}, sorted(batch)
+        assert set(batch) == {"image", "mask", "edge_mask", "label"}, sorted(batch)
         bs = batch["image"].shape[0]
         assert batch["image"].shape == (bs, 3, CROP, CROP), batch["image"].shape
         assert batch["mask"].shape == (bs, 1, CROP, CROP), batch["mask"].shape
@@ -97,6 +98,10 @@ def check_loader(ds, n_batches=2, batch_size=4, shuffle=True):
         for k in ("image", "mask", "edge_mask"):
             assert batch[k].dtype == torch.float32, (k, batch[k].dtype)
         assert 0.0 <= batch["mask"].min() and batch["mask"].max() <= 1.0
+        assert batch["label"].shape == (bs,) and batch["label"].dtype == torch.int64, batch["label"]
+        assert set(batch["label"].tolist()) <= {0, 1}, batch["label"]
+        # authentic images carry an all-zero mask
+        assert (batch["mask"][batch["label"] == 0] == 0).all(), "authentic sample with a non-zero mask"
         if b == 0:
             for k, v in batch.items():
                 print(f"    {k:10s} {tuple(v.shape)} {v.dtype} min={v.min():.3f} max={v.max():.3f}")
@@ -149,6 +154,8 @@ def main():
         tampered_masks = [ds[i]["mask"].sum().item() > 0
                           for i in range(n) if ds.get_raw(i)["label_str"] == "tampered"]
         assert tampered_masks and all(tampered_masks), "tampered sample lost its mask"
+        assert all(ds[i]["label"].item() == ds.get_raw(i)["label"] for i in range(n)), "label mismatch"
+        print(f"    labels returned for all {n} samples match the stored label column")
         check_loader(ds)
 
     if args.remote:

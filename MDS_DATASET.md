@@ -116,7 +116,7 @@ compares N samples' bytes against the originals. Exit code 1 on any problem.
 ## Reading it back
 
 In PyTorch, through `ForensicsMDSDataset` — returns
-`{"image": (3,H,W) float, "mask": (1,H,W) float, "edge_mask": (1,H,W) float}`:
+`{"image": (3,H,W) float, "mask": (1,H,W) float, "edge_mask": (1,H,W) float, "label": int64 (0 authentic / 1 tampered)}`:
 
 ```python
 from torch.utils.data import DataLoader

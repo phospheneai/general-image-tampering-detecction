@@ -3,7 +3,8 @@ MDS/streaming-shard backed sibling of forensics_dataset.py's
 ForensicsDataset. Reads raw image + mask bytes out of MosaicML Streaming
 (MDS) shards built by packages/mdsconverter/build_mds_dataset.py instead of
 loose files on disk — same transforms and the same {image, mask, edge_mask}
-return dict; only the byte source differs. Mirrors
+return dict, plus the image-level `label` (0 authentic / 1 tampered) that
+the MDS shards store; only the byte source differs. Mirrors
 ai-generated-video-detection's authgenvideo/data/video_mds_dataset.py.
 
 Bytes in the shards are the original files, never re-encoded (JPEG
@@ -214,6 +215,10 @@ class ForensicsMDSDataset(Dataset):
             "image": image,
             "mask": mask,
             "edge_mask": edge_mask,
+            # image-level class, 0 = authentic / 1 = tampered, as stored by
+            # build_mds_dataset.py. Not derivable from the (cropped) mask:
+            # a crop of a tampered image can miss the forged region.
+            "label": torch.tensor(sample["label"], dtype=torch.long),
         }
 
 
@@ -267,6 +272,7 @@ if __name__ == "__main__":
     assert sample["mask"].shape == (1, size, size), f"bad mask shape: {sample['mask'].shape}"
     assert sample["edge_mask"].shape == (1, size, size), f"bad edge_mask shape: {sample['edge_mask'].shape}"
     assert sample["mask"].min() >= 0.0 and sample["mask"].max() <= 1.0, "mask out of [0, 1]"
+    assert sample["label"].item() in (0, 1), f"bad label: {sample['label']}"
 
     for k, v in sample.items():
         print(f"{k:10s}: {tuple(v.shape)} {v.dtype}")
