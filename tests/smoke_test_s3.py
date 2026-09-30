@@ -93,6 +93,21 @@ def main():
                     help="Where shards are cached. Default: a fresh temp dir, deleted afterwards.")
     args = ap.parse_args()
 
+    # fail fast with a readable reason: streaming reports a 403 on
+    # index.json as "not found", which hides a missing-permission problem
+    import boto3
+    from botocore.exceptions import ClientError, NoCredentialsError
+    bucket, prefix = S3_ROOT[len("s3://"):].split("/", 1)
+    try:
+        who = boto3.client("sts").get_caller_identity()["Arn"]
+        boto3.client("s3").head_object(Bucket=bucket, Key=f"{prefix}/{args.splits[0]}/index.json")
+    except (ClientError, NoCredentialsError) as e:
+        sys.exit(f"cannot read {S3_ROOT}/{args.splits[0]}/index.json as "
+                 f"{locals().get('who', 'no credentials')} ({e}).\n"
+                 f"Use credentials with s3:GetObject on {S3_ROOT}/*, e.g. "
+                 f"AWS_PROFILE=<profile> python tests/smoke_test_s3.py")
+    print(f"S3 access OK as {who}")
+
     cache = args.cache_dir or tempfile.mkdtemp(prefix="mds_s3_smoke_")
     try:
         for split in args.splits:
