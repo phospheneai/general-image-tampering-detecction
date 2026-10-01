@@ -1,0 +1,152 @@
+# ============================================================
+# Local GPU run (python train.py) — same model + hyperparameters as
+# sagemaker/config/normal/train_forensics.yml; only the I/O differs:
+# processed-v1 is streamed from S3 into a bounded local cache (the 1.1 TB
+# train split does not fit on the box) and checkpoints stay local.
+# Relative paths resolve against this file; train.py fills cache_dir and
+# cache_limit when they are null.
+# ============================================================
+
+# ============================================================
+# General settings
+# ============================================================
+
+name: train_forensics_local_v1
+model: dinov3_forensics_lora
+type: binary_segmentation
+data_context: normal
+
+data_format: mds
+
+# s3:// dataroots are streamed into cache_dir (null = train.py picks
+# ~/data/mds_cache). cache_limit is per split (null = train.py sizes it
+# from the free disk space, capped at 150gb).
+cache_dir: null
+cache_limit: null
+
+
+# ============================================================
+# Datasets
+# ============================================================
+
+datasets:
+
+  train:
+    dataroot: s3://authenta-data-rnd/image-tampering-detection/processed-v1/train
+    # Shuffle within blocks of this many random shards (new order each
+    # epoch) so every shard is downloaded once per epoch and the cache
+    # holds ~2 blocks (~35 GB) — see authgenforge/data/shard_block_sampler.py.
+    shard_block: 32
+    n_workers: 8
+    batch_size: 4
+    crop_size: 512
+    buffer_size: 1000
+    total_samples: null
+    stateful_loader: true
+    pin_memory: true
+
+  test:
+    dataroot: s3://authenta-data-rnd/image-tampering-detection/processed-v1/test
+    n_workers: 4
+    crop_size: 512
+    pin_memory: true
+
+
+# ============================================================
+# Network structure
+# ============================================================
+
+structure:
+
+  backbone:
+    # config.json + model.safetensors; train.py downloads them from
+    # s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/
+    # when missing.
+    model_path: ../../artifacts/mirror/dinov3-vitl16
+    model_type: dinov3_vitl16
+    lora_rank: 32
+    lora_alpha: 64
+    lora_dropout: 0.0
+
+
+# ============================================================
+# Pretraining settings
+# ============================================================
+
+pretraining_settings:
+
+  want_load: false
+  checkpoint_path: ""
+  strict_load: true
+
+
+# ============================================================
+# Epoch settings
+# ============================================================
+
+epoch_settings:
+
+  total_epochs: 10
+
+
+# ============================================================
+# Training settings
+# ============================================================
+
+train_settings:
+
+  # ----------------------------------------------------------
+  # Optimizer
+  # ----------------------------------------------------------
+
+  base_lr: !!float 5e-4
+  weight_decay: !!float 0.05
+  layer_decay: 0.8
+
+
+  # ----------------------------------------------------------
+  # Scheduler
+  # ----------------------------------------------------------
+
+  scheduler_type: annealing
+  warmup_epochs: 0.05
+  warmup_lr: !!float 2.5e-7
+  min_lr: !!float 1e-5
+  T_0_epochs: 2
+
+
+  # ----------------------------------------------------------
+  # Criterion
+  # ----------------------------------------------------------
+
+  criterion: forgery_segmentation
+
+  forgery_segmentation_loss:
+    edge_lambda: 20.0
+
+
+  # ----------------------------------------------------------
+  # Training mechanics
+  # ----------------------------------------------------------
+
+  grad_accum_steps: 8
+  grad_clip: 1.0
+
+  # optimizer updates (x grad_accum_steps batches) between mid-epoch
+  # checkpoints — each one also stores the loader position for resume
+  save_interval: 1000
+  log_interval: 100
+
+  mixed_precision: true
+
+
+  # ----------------------------------------------------------
+  # Checkpointing
+  # ----------------------------------------------------------
+
+  # train.py resumes automatically from <this>/<name>/latest_checkpoint.pth
+  save_checkpoint_folder_path: ../../checkpoints
+
+  load_checkpoint_file_path:
+
+  resume_dataloader: true

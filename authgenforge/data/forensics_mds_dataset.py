@@ -43,6 +43,7 @@ from urllib.parse import urlparse
 from torch.utils.data import Dataset
 
 from streaming import Stream, StreamingDataset
+from streaming.base.storage.download import S3Downloader
 
 from authgenforge import *
 from authgenforge.augmentations.presets import (
@@ -50,6 +51,55 @@ from authgenforge.augmentations.presets import (
     get_val_transforms,
 )
 from authgenforge.data.forensics_dataset import _compute_edge_mask
+
+
+# ==========================================
+# S3 download
+# ==========================================
+
+
+class _ThreadedS3Downloader(S3Downloader):
+    """
+    streaming's S3Downloader fetches a shard as one single-threaded GET
+    (TransferConfig(use_threads=False)). Far from the bucket's region that
+    is latency-bound: ~1 MB/s for a 512 MB shard from pc-003 to us-east-1,
+    vs ~8 MB/s for a multipart, multithreaded download of the same object.
+    Same contract, threaded transfer. Used only for s3:// dataroots — the
+    SageMaker FastFile path reads local files and never downloads.
+    """
+
+    _MAX_CONCURRENCY = 16
+
+    def _download_file_impl(self, remote: str, local: str, timeout: float) -> None:
+        import boto3
+        from boto3.s3.transfer import TransferConfig
+        from botocore.config import Config
+
+        # one client per process: DataLoader workers are forked, and a
+        # boto3 client must not be shared across a fork
+        if getattr(self, "_client_pid", None) != os.getpid():
+            self._s3_client = boto3.session.Session().client(
+                "s3",
+                config=Config(
+                    max_pool_connections=self._MAX_CONCURRENCY * 2,
+                    read_timeout=timeout,
+                    connect_timeout=timeout,
+                    retries={"max_attempts": 10, "mode": "adaptive"},
+                ),
+            )
+            self._client_pid = os.getpid()
+
+        obj = urlparse(remote)
+        self._s3_client.download_file(
+            obj.netloc,
+            obj.path.lstrip("/"),
+            local,
+            Config=TransferConfig(
+                use_threads=True,
+                max_concurrency=self._MAX_CONCURRENCY,
+                multipart_chunksize=16 * 1024 * 1024,
+            ),
+        )
 
 
 # ==========================================
@@ -131,7 +181,7 @@ class ForensicsMDSDataset(Dataset):
                 )
 
         try:
-            return StreamingDataset(
+            dataset = StreamingDataset(
                 streams=streams,
                 shuffle=False,
                 cache_limit=cache_limit,
@@ -140,6 +190,12 @@ class ForensicsMDSDataset(Dataset):
             raise RuntimeError(
                 f"failed to open MDS dataset at {roots!r}: {e}"
             ) from e
+
+        for stream in dataset.streams:
+            if isinstance(stream._downloader, S3Downloader):
+                stream._downloader = _ThreadedS3Downloader()
+
+        return dataset
 
     def __len__(self) -> int:
         return len(self.dataset)

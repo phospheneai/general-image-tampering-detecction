@@ -36,10 +36,15 @@ def build_mds_dataloaders(
     data_context: str = "normal",
     cache_dir: str | None = None,
     cache_limit: str | int | None = None,
+    shard_block: int | None = None,
 ) -> tuple[DataLoader, DataLoader]:
     """
     buffer_size and data_context are accepted for interface parity with
     the folder backend — unused here.
+
+    shard_block: if set, shuffle shard-locally (ShardBlockSampler, blocks
+    of this many shards, next block prefetched) instead of over the whole
+    split — for an s3:// dataroot with a cache_limit smaller than the split.
     """
 
     test_num_workers = (
@@ -69,10 +74,24 @@ def build_mds_dataloaders(
     # bytes — a full-corpus read on every launch. build_mds_dataset.py's
     # authentic:tampered interleaving already keeps every shard at the
     # split's global ratio; correct any imbalance with loss weighting.
+    if shard_block:
+        from authgenforge.data.shard_block_sampler import (
+            ShardBlockSampler,
+        )
+        stream = train_ds.dataset
+        train_sampler = ShardBlockSampler(
+            stream.samples_per_shard,
+            block_shards=int(shard_block),
+            prefetch=stream.prepare_shard,
+        )
+        sampling = {"sampler": train_sampler}
+    else:
+        sampling = {"shuffle": True}
+
     train_loader = train_loader_cls(
         train_ds,
         batch_size=batch_size,
-        shuffle=True,
+        **sampling,
         num_workers=num_workers,
         pin_memory=pin_memory,
         drop_last=True,

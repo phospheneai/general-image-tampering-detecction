@@ -28,6 +28,18 @@ bash scripts/download_artifacts.sh  # fetches the DINOv3 ViT-L/16 backbone
 Or run `bash scripts/setup.sh`, which installs the dependencies and prepares
 the artifact directory in one shot for a fresh session.
 
+`install_deps.sh` expects torch to be there already (Lambda Stack, the
+SageMaker image). On a plain machine install it first, matching the GPU — the
+SageMaker image's torch 2.3 / CUDA 12.1 has no kernels for Blackwell
+(RTX 50xx, sm_120):
+
+```bash
+conda create -n forgery python=3.11 && conda activate forgery
+pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu128   # RTX 50xx
+# pip install torch==2.3.0 torchvision==0.18.0 --index-url https://download.pytorch.org/whl/cu121 # = the SageMaker image
+bash scripts/install_deps.sh
+```
+
 `install_deps.sh` pins a few versions for non-obvious reasons:
 
 | Pin | Why |
@@ -209,6 +221,44 @@ checkpoints/{experiment_name}/
 
 ## 3. Train, evaluate, and play around
 
+### One command: `python train.py`
+
+```bash
+python train.py --smoke     # ~5 min end-to-end check: 64-sample smoke slice, 1 epoch
+python train.py             # the real run: processed-v1, configs/local/train_forensics.yml
+python train.py --epochs 3  # stop after epoch 3; run again with a higher number to continue
+```
+
+`train.py` (repo root) does everything a run needs, in order, and stops with
+the fix when a step can't succeed:
+
+1. **GPU** — refuses to start on the CPU: reports a missing NVIDIA driver
+   module (with the `apt` command for the running kernel) or a torch build
+   without kernels for this GPU (Blackwell / RTX 50xx needs torch ≥ 2.7 with
+   CUDA 12.8). `--allow-cpu` overrides.
+2. **AWS** — checks the credentials when the data is on S3.
+3. **Backbone** — downloads `config.json` + `model.safetensors` from
+   `s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/`
+   if `artifacts/mirror/dinov3-vitl16/` lacks them.
+4. **Data** — streams processed-v1 from S3 into `~/data/mds_cache`
+   (`--cache-dir` to move it), sized from the free disk. The 1.1 TB train split
+   doesn't need to fit: `datasets.train.shard_block` shuffles within blocks of
+   random shards and prefetches the next block, so each shard is downloaded
+   once per epoch.
+5. **Resume** — if `checkpoints/<name>/latest_checkpoint.pth` exists, it
+   continues from there, mid-epoch included (same logic as the SageMaker job).
+   Ctrl+C, a crash or a reboot cost at most `save_interval` updates: run the
+   same command again.
+6. **Train** — `load_pipeline_from_yml` + `trainer.train_model`, exactly what
+   `sagemaker/train.py` runs.
+
+`configs/local/*.yml` are copies of `sagemaker/config/*.yml` with the same
+model and hyperparameters; only the data, backbone and checkpoint locations
+differ.
+
+The rest of this section is the lower-level way: any config, through
+`notebooks/train.py` or Python.
+
 Two existing configs to start from:
 
 | Config | Trains on | Launch with |
@@ -261,8 +311,11 @@ Set `train_settings.load_checkpoint_file_path` to a checkpoint file and
 re-launch the same config. The path resolves relative to the yml.
 
 The model weights, optimizer, scheduler, scaler, `epoch`, `global_step` and
-`best_iou` are restored. The dataloader position is not: a resumed run starts
-its epoch from a fresh shuffle.
+`best_iou` are restored. With `stateful_loader: true` and
+`resume_dataloader: true`, a mid-epoch checkpoint (every `save_interval`
+optimizer updates) also restores the train loader's position, so the epoch
+continues where it stopped instead of starting over. (`python train.py` and
+the SageMaker job find `latest_checkpoint.pth` and set this up themselves.)
 
 To start a new run from a previous run's weights only, use
 `pretraining_settings.{want_load, checkpoint_path}` instead.

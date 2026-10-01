@@ -86,6 +86,9 @@ def _backend_extra_kwargs(backend: str, opt: dict) -> dict:
         return {
             "cache_dir": opt.get("cache_dir"),
             "cache_limit": opt.get("cache_limit"),
+            # shard-local shuffling for a bounded S3 cache — see
+            # authgenforge/data/shard_block_sampler.py
+            "shard_block": opt["datasets"]["train"].get("shard_block"),
         }
     return {}
 
