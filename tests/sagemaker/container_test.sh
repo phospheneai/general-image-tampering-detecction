@@ -11,6 +11,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 WORK="${1:-$(mktemp -d)}"
+mkdir -p "$WORK"
 WORK="$(cd "$WORK" && pwd)"
 IMAGE=forgery-train:container-test
 echo "[container-test] work dir: $WORK"
