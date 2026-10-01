@@ -1,2 +1,2 @@
-# bash fails on CRLF ("$'': command not found") — keep scripts LF on every checkout
+# keep scripts LF on every checkout — bash fails on CRLF line endings
 *.sh text eol=lf
