@@ -614,6 +614,13 @@ def get_trainer_from_yml(
             if resume
             else None
         ),
+
+        resume_dataloader=bool(
+            _cfg(
+                ts.get("resume_dataloader"),
+                True,
+            )
+        ),
     )
 
 
