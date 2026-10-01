@@ -79,9 +79,11 @@ jobs:
             --input "$(jq -nc --arg i "$IMAGE" '{image_uri:$i}')" \
             --query executionArn --output text)
 
-          echo "job=$JOB"     >> "$GITHUB_OUTPUT"
-          echo "exec=$EXEC"   >> "$GITHUB_OUTPUT"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          {
+            echo "job=$JOB"
+            echo "exec=$EXEC"
+            echo "image=$IMAGE"
+          } >> "$GITHUB_OUTPUT"
           echo "started $JOB"
 
       - name: Wait for it

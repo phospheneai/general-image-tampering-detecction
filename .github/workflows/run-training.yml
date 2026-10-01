@@ -58,8 +58,9 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$END_EPOCH" =~ ^[1-9][0-9]*$ ]] || { echo "::error::end_epoch must be a positive integer"; exit 1; }
-          [[ "$MAX_HOURS" =~ ^[1-9][0-9]*$ ]] && [ "$MAX_HOURS" -le 672 ] \
-            || { echo "::error::max_runtime_hours must be an integer 1-672"; exit 1; }
+          if ! [[ "$MAX_HOURS" =~ ^[1-9][0-9]*$ ]] || [ "$MAX_HOURS" -gt 672 ]; then
+            echo "::error::max_runtime_hours must be an integer 1-672"; exit 1
+          fi
 
           ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
           IMAGE="${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
