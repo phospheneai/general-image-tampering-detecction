@@ -1,0 +1,72 @@
+# Smoke test: a few dozen MDS samples, 1 epoch, tiny batch. Exercises the
+# whole path — ECR pull -> FastFile mount -> MDS read -> dataloader -> fwd/bwd
+# -> checkpoint -> S3 sync — in ~10 min on the same instance as a real run.
+#
+# Data: s3://authenta-data-rnd/image-tampering-detection/smoke/{train,test}/,
+# built by scripts/make_smoke_mds.py (a small slice of processed-v1, same
+# columns). Run it with the "Smoke test" workflow, or locally with
+# tests/sagemaker/emulate_training_job.py.
+
+name: sm_smoke
+model: dinov3_forensics_lora
+type: binary_segmentation
+data_context: normal
+data_format: mds
+
+datasets:
+  train:
+    dataroot: /opt/ml/input/data/train
+    n_workers: 2
+    batch_size: 2
+    crop_size: 512
+    buffer_size: 0
+    total_samples: null
+    stateful_loader: true    # same loader class as a real run
+    pin_memory: true
+  test:
+    dataroot: /opt/ml/input/data/test
+    n_workers: 2
+    crop_size: 512
+    pin_memory: true
+
+structure:
+  backbone:
+    model_path: /opt/ml/input/data/artifacts
+    model_type: dinov3_vitl16
+    lora_rank: 32
+    lora_alpha: 64
+    lora_dropout: 0.0
+
+pretraining_settings:
+  want_load: false           # from the DINOv3 backbone only — no init .pth
+  checkpoint_path: ""
+  strict_load: true
+
+epoch_settings:
+  total_epochs: 1
+
+train_settings:
+  base_lr: !!float 5e-4
+  weight_decay: !!float 0.05
+  layer_decay: 0.8
+
+  scheduler_type: annealing
+  warmup_epochs: 0.05
+  warmup_lr: !!float 2.5e-7
+  min_lr: !!float 1e-5
+  T_0_epochs: 1
+
+  criterion: forgery_segmentation
+  forgery_segmentation_loss:
+    edge_lambda: 20.0
+
+  grad_accum_steps: 1
+  grad_clip: 1.0
+  save_interval: 5           # mid-epoch checkpoint, so the S3 sync is exercised
+  log_interval: 1
+
+  mixed_precision: true
+
+  save_checkpoint_folder_path: /opt/ml/checkpoints
+  load_checkpoint_file_path:
+  resume_dataloader: true

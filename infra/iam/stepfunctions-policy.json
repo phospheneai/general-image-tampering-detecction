@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RunTrainingJobs",
+      "Effect": "Allow",
+      "Action": ["sagemaker:CreateTrainingJob", "sagemaker:DescribeTrainingJob",
+                 "sagemaker:StopTrainingJob", "sagemaker:AddTags", "sagemaker:ListTags"],
+      "Resource": "arn:aws:sagemaker:${AWS_REGION}:${AWS_ACCOUNT_ID}:training-job/*"
+    },
+    {
+      "Sid": "PassTheSageMakerExecutionRoleToTheJob",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/forgery-sagemaker-role",
+      "Condition": { "StringEquals": { "iam:PassedToService": "sagemaker.amazonaws.com" } }
+    },
+    {
+      "Sid": "SyncIntegrationNeedsThisEventBridgeRule",
+      "Effect": "Allow",
+      "Action": ["events:PutTargets", "events:PutRule", "events:DescribeRule"],
+      "Resource": "arn:aws:events:${AWS_REGION}:${AWS_ACCOUNT_ID}:rule/StepFunctionsGetEventsForSageMakerTrainingJobsRule"
+    }
+  ]
+}

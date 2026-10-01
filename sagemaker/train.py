@@ -373,6 +373,14 @@ def main() -> None:
         flush=True,
     )
 
+    # Which code produced this run's checkpoints: GIT_SHA is baked into the
+    # image at build time, TRAINING_IMAGE is set by the state machine.
+    print(
+        f"[train] git_sha={os.environ.get('GIT_SHA', 'unknown')} "
+        f"image={os.environ.get('TRAINING_IMAGE', 'unknown')}",
+        flush=True,
+    )
+
     # --------------------------------------------------------
     # Training pipeline
     # --------------------------------------------------------

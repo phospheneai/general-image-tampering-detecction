@@ -1,0 +1,142 @@
+# Smoke test the whole pipeline on AWS: ECR pull -> FastFile mount -> MDS read
+# -> fwd/bwd -> checkpoint -> S3 sync, on the smoke/ slice for 1 epoch
+# (~10-15 min, well under $1 on ml.g6e.2xlarge).
+#
+# Unlike Run training this WAITS and fails the job if training fails, so it is a
+# real red/green check before you commit to a multi-day run.
+#
+# Needs (see infra/README.md, "One-time setup"):
+#   s3://authenta-data-rnd/image-tampering-detection/smoke/{train,test}/index.json
+#   s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/model.safetensors
+name: Smoke test
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "ECR tag to test (commit SHA from Build training image, or latest)"
+        required: false
+        default: "latest"
+
+env:
+  AWS_REGION: us-east-1
+  STATE_MACHINE: forgery-smoke
+  ECR_REPOSITORY: forgery-train
+  DATA: s3://authenta-data-rnd/image-tampering-detection
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75        # the job itself is capped at 60 min by the ASL
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check the smoke data and backbone exist
+        run: |
+          set -euo pipefail
+          fail=0
+          need () {               # s3-uri  how-to-fix
+            # capture the listing on its own so an AccessDenied is reported as
+            # such, instead of being mistaken for a missing file
+            local out
+            if out=$(aws s3 ls "$1" 2>&1); then
+              echo "found $1"
+            elif grep -q "AccessDenied" <<<"$out"; then
+              echo "::error::cannot list $1 — the GitHub role needs s3:ListBucket (infra/iam/github-policy.json)"; fail=1
+            else
+              echo "::error::missing $1 — $2"; fail=1
+            fi
+          }
+          need "$DATA/smoke/train/index.json" "run: python scripts/make_smoke_mds.py --upload"
+          need "$DATA/smoke/test/index.json"  "run: python scripts/make_smoke_mds.py --upload"
+          need "$DATA/artifacts/dinov3-vitl16/model.safetensors" "upload the DINOv3 backbone (infra/README.md)"
+          exit $fail
+
+      - name: Start the smoke run
+        id: start
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          IMAGE="${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          # fail now, not 10 minutes into provisioning, if the tag isn't there
+          aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$IMAGE_TAG" --region "$AWS_REGION" >/dev/null
+
+          JOB="smoke-$(date -u +%Y%m%d-%H%M%S)"
+          EXEC=$(aws stepfunctions start-execution \
+            --state-machine-arn "arn:aws:states:${AWS_REGION}:${ACCOUNT}:stateMachine:${STATE_MACHINE}" \
+            --name "$JOB" \
+            --input "$(jq -nc --arg i "$IMAGE" '{image_uri:$i}')" \
+            --query executionArn --output text)
+
+          echo "job=$JOB"     >> "$GITHUB_OUTPUT"
+          echo "exec=$EXEC"   >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "started $JOB"
+
+      - name: Wait for it
+        id: wait
+        env:
+          EXEC: ${{ steps.start.outputs.exec }}
+          JOB: ${{ steps.start.outputs.job }}
+        run: |
+          set -euo pipefail
+          while :; do
+            STATUS=$(aws stepfunctions describe-execution --execution-arn "$EXEC" \
+                      --query status --output text)
+            [ "$STATUS" = "RUNNING" ] || break
+            PHASE=$(aws sagemaker describe-training-job --training-job-name "$JOB" \
+                      --query SecondaryStatus --output text 2>/dev/null || echo "Pending")
+            echo "$(date -u +%H:%M:%S) ${PHASE}..."
+            sleep 30
+          done
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "finished: $STATUS"
+          [ "$STATUS" = "SUCCEEDED" ]
+
+      - name: Report
+        if: always() && steps.start.outputs.job != ''
+        env:
+          JOB: ${{ steps.start.outputs.job }}
+          IMAGE: ${{ steps.start.outputs.image }}
+          STATUS: ${{ steps.wait.outputs.status }}
+        run: |
+          {
+            echo "### Smoke test: ${STATUS:-did not finish}"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| image | \`${IMAGE}\` |"
+            echo "| job | \`${JOB}\` |"
+            echo "| logs | \`/aws/sagemaker/TrainingJobs/${JOB}\` |"
+            echo "| checkpoints | \`${DATA}/sagemaker/smoke/checkpoints/${JOB}/\` |"
+            echo ""
+            echo "Final metrics:"
+            echo '```'
+            aws sagemaker describe-training-job --training-job-name "$JOB" \
+              --query 'FinalMetricDataList[].[MetricName,Value]' --output text 2>/dev/null || echo "(none)"
+            echo '```'
+            if [ "$STATUS" != "SUCCEEDED" ]; then
+              echo "Failure reason:"
+              echo '```'
+              aws sagemaker describe-training-job --training-job-name "$JOB" \
+                --query FailureReason --output text 2>/dev/null | head -40 || echo "(unavailable)"
+              echo '```'
+              echo "Last log lines:"
+              echo '```'
+              aws logs filter-log-events --log-group-name /aws/sagemaker/TrainingJobs \
+                --log-stream-name-prefix "$JOB/" --query 'events[-60:].message' --output text 2>/dev/null \
+                | tr '\t' '\n' | tail -60 || echo "(unavailable)"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

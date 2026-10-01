@@ -1,0 +1,74 @@
+# Checks for the SageMaker pipeline that need no AWS access, so they can run
+# on every change that touches it:
+#   static     — infra templates, ASL <-> config <-> IAM agreement, train.py patching
+#   container  — build the real image on a CPU base and run it SageMaker-style
+#                (read-only channel mounts, smoke.yml, restart-and-resume)
+name: Pipeline checks
+
+on:
+  pull_request:
+    paths:
+      - "authgenforge/**"
+      - "sagemaker/**"
+      - "infra/**"
+      - "tests/sagemaker/**"
+      - "scripts/make_smoke_mds.py"
+      - "packages/mdsconverter/build_mds_dataset.py"
+      - ".github/workflows/**"
+      - ".dockerignore"
+  push:
+    paths:
+      - "authgenforge/**"
+      - "sagemaker/**"
+      - "infra/**"
+      - "tests/sagemaker/**"
+      - "scripts/make_smoke_mds.py"
+      - "packages/mdsconverter/build_mds_dataset.py"
+      - ".github/workflows/**"
+      - ".dockerignore"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml pytest
+      - name: Infra/config agreement tests
+        run: pytest tests/sagemaker -q
+      - name: Shell scripts parse
+        run: for f in infra/*.sh tests/sagemaker/*.sh; do bash -n "$f"; done
+      - name: Lint workflows
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+      - name: Build and run the training image like a SageMaker job
+        run: bash tests/sagemaker/container_test.sh "$RUNNER_TEMP/smjob"
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-test-logs
+          path: ${{ runner.temp }}/smjob/output/
+          if-no-files-found: ignore

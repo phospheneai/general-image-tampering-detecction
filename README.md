@@ -15,7 +15,8 @@ processed MosaicML Streaming (MDS) shards built by `packages/mdsconverter/`
 - [1. Installation](#1-installation)
 - [2. About the repo](#2-about-the-repo)
 - [3. Train, evaluate, and play around](#3-train-evaluate-and-play-around)
-- [4. Contributing](#4-contributing)
+- [4. Train on SageMaker (automated pipeline)](#4-train-on-sagemaker-automated-pipeline)
+- [5. Contributing](#5-contributing)
 
 ## 1. Installation
 
@@ -61,7 +62,8 @@ authgenforge/
 packages/
   mdsconverter/  raw forgery datasets -> MDS shards (see DATASET_PIPELINE.md)
 configs/         one yml per experiment (normal/, pdf/) + dataset conversion (mds/)
-sagemaker/       SageMaker training entry point (see sagemaker/README.md)
+sagemaker/       SageMaker training image: entry point, configs, Dockerfile
+infra/           Step Functions pipelines + IAM for SageMaker training (see infra/README.md)
 notebooks/       thin launcher scripts (config path in, pipeline out)
 scripts/         install / artifact-download / setup
 tests/           smoke tests + single-batch overfit sanity check
@@ -336,7 +338,32 @@ criterion = get_criterion_from_yml("configs/normal/train_forensics_mds.yml")
 train_loader, test_loader = get_dataloaders_from_yml("configs/normal/train_forensics_mds.yml")
 ```
 
-## 4. Contributing
+## 4. Train on SageMaker (automated pipeline)
+
+Training on the full processed-v1 dataset runs as a SageMaker training job,
+started from GitHub Actions — no laptop, no access keys:
+
+```
+Build training image  →  ECR forgery-train:<sha>
+Deploy pipelines      →  Step Functions forgery-training / forgery-smoke
+Smoke test            →  1 epoch on a 96-sample slice, waits, ✅/❌
+Run training          →  ml.g6e.2xlarge, processed-v1 from S3, checkpoints back to S3
+```
+
+One-time AWS setup, the S3 layout, and what to rerun after which change are
+in [infra/README.md](infra/README.md). The `Pipeline checks` workflow runs on
+every push without AWS: it checks that the state machines, IAM policies and
+`sagemaker/config/` agree, and runs the real training image the way SageMaker
+does (on CPU, synthetic data, including a restart-and-resume).
+
+Locally:
+
+```bash
+pytest tests/sagemaker -q                       # seconds
+bash tests/sagemaker/container_test.sh          # needs Docker
+```
+
+## 5. Contributing
 
 ### Add a new dataset backend
 
@@ -371,6 +398,8 @@ Record the new counts in [DATASETS.md](DATASETS.md).
   metric.
 - If you touched `authgenforge/data/` or `packages/mdsconverter/`, run
   `tests/smoke_test_mds.py` and `tests/smoke_test_all_paths.py`.
+- If you touched `sagemaker/`, `infra/`, or the trainer's log format, run
+  `pytest tests/sagemaker` (CI also runs it, plus the container test).
 - If you add a new config key that holds a file path, resolve it in
   `option_utils.py`'s `parse_yml` (add it to the relevant path-resolution
   block) rather than resolving it ad hoc at the call site — otherwise it

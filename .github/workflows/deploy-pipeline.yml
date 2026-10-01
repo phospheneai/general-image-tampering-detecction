@@ -1,0 +1,65 @@
+# Create or update BOTH state machines from their ASL definitions in git.
+# Manual only. Run once at setup, then whenever an infra/*.asl.json changes.
+# Does not start any training.
+name: Deploy pipelines
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false        # one failing must not cancel the other
+      matrix:
+        include:
+          - name: forgery-training
+            definition: infra/train-pipeline.asl.json
+          - name: forgery-smoke
+            definition: infra/smoke-pipeline.asl.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ${{ matrix.name }}
+        env:
+          NAME: ${{ matrix.name }}
+          DEFINITION: ${{ matrix.definition }}
+        run: |
+          set -euo pipefail
+          export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ARN="arn:aws:states:${AWS_REGION}:${AWS_ACCOUNT_ID}:stateMachine:${NAME}"
+          ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/forgery-stepfunctions-role"
+
+          # the ASL in git has ${AWS_ACCOUNT_ID}/${AWS_REGION} placeholders
+          bash infra/render.sh "$DEFINITION" > rendered.asl.json
+
+          # validated server-side first, so a typo fails here and not mid-run
+          RESULT=$(aws stepfunctions validate-state-machine-definition \
+            --definition "$(cat rendered.asl.json)" --type STANDARD --query result --output text)
+          if [ "$RESULT" != "OK" ]; then
+            aws stepfunctions validate-state-machine-definition \
+              --definition "$(cat rendered.asl.json)" --type STANDARD
+            exit 1
+          fi
+
+          if aws stepfunctions describe-state-machine --state-machine-arn "$ARN" >/dev/null 2>&1; then
+            aws stepfunctions update-state-machine --state-machine-arn "$ARN" \
+              --definition file://rendered.asl.json --role-arn "$ROLE" >/dev/null
+            echo "updated $ARN" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            aws stepfunctions create-state-machine --name "$NAME" --type STANDARD \
+              --definition file://rendered.asl.json --role-arn "$ROLE" >/dev/null
+            echo "created $ARN" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
