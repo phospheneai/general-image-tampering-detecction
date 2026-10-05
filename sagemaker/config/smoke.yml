@@ -70,3 +70,16 @@ train_settings:
   save_checkpoint_folder_path: /opt/ml/checkpoints
   load_checkpoint_file_path:
   resume_dataloader: true
+
+# Read by sagemaker/launch.py only — the forgery-smoke state machine
+# (infra/smoke-pipeline.asl.json) carries its own copy. Change one, change both.
+#   python sagemaker/launch.py --config config/smoke.yml --run-name smoke-1 --max-run-hours 1
+sagemaker:
+  region: us-east-1
+  output_bucket: authenta-data-rnd
+  checkpoint_prefix: image-tampering-detection/sagemaker/smoke/checkpoints
+  output_prefix: image-tampering-detection/sagemaker/smoke/output
+  inputs:
+    train:     {uri: s3://authenta-data-rnd/image-tampering-detection/smoke/train/, mode: FastFile}
+    test:      {uri: s3://authenta-data-rnd/image-tampering-detection/smoke/test/,  mode: FastFile}
+    artifacts: {uri: s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/, mode: File}

@@ -116,12 +116,21 @@ def test_checkpoints_go_where_sagemaker_syncs(_, name, state, cfg):
     assert config(cfg)["train_settings"]["save_checkpoint_folder_path"] == local
 
 
-def test_launcher_inputs_match_the_pipeline():
+@pytest.mark.parametrize("_, name, state, cfg", PIPELINES)
+def test_launcher_inputs_match_the_pipeline(_, name, state, cfg):
     """launch.py reads S3 locations from the yml, the pipeline from the ASL."""
-    launch = {k: v["uri"] for k, v in config("config/normal/train_forensics.yml")["sagemaker"]["inputs"].items()}
-    pipeline = {c["ChannelName"]: c["DataSource"]["S3DataSource"]["S3Uri"]
-                for c in task_params("train-pipeline.asl.json", "Train")["InputDataConfig"]}
+    launch = {k: (v["uri"], v["mode"]) for k, v in config(cfg)["sagemaker"]["inputs"].items()}
+    pipeline = {c["ChannelName"]: (c["DataSource"]["S3DataSource"]["S3Uri"], c["InputMode"])
+                for c in task_params(name, state)["InputDataConfig"]}
     assert launch == pipeline
+
+
+@pytest.mark.parametrize("_, name, state, cfg", PIPELINES)
+def test_launcher_outputs_match_the_pipeline(_, name, state, cfg):
+    sm = config(cfg)["sagemaker"]
+    params = json.dumps(task_params(name, state))
+    for key in ("checkpoint_prefix", "output_prefix"):
+        assert f"s3://{sm['output_bucket']}/{sm[key]}/{{}}/" in params
 
 
 def test_run_training_offers_only_configs_in_the_image():
@@ -182,7 +191,8 @@ def test_workflows_use_one_region():
     regions = {workflow(f.name)["env"]["AWS_REGION"] for f in WORKFLOWS.glob("*.yml") if "AWS_REGION" in workflow(f.name).get("env", {})}
     assert regions == {REGION}
     assert f"AWS_REGION:-{REGION}" in (INFRA / "setup-aws.sh").read_text(encoding="utf-8")
-    assert config("config/normal/train_forensics.yml")["sagemaker"]["region"] == REGION
+    for _, _, _, cfg in PIPELINES:
+        assert config(cfg)["sagemaker"]["region"] == REGION
 
 
 # ------------------------------------------------------------------

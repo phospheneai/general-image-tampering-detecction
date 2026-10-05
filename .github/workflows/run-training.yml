@@ -11,8 +11,9 @@ on:
         description: "Run name — becomes the SageMaker job name and the S3 sub-prefix"
         required: true
       image_tag:
-        description: "ECR tag to run (commit SHA from Build training image — avoid latest for real runs)"
-        required: true
+        description: "ECR tag to run (commit SHA from Build training image, or latest — prefer the SHA for real runs)"
+        required: false
+        default: "latest"
       config:
         description: "Training config inside the image (smoke has its own workflow)"
         required: false

@@ -559,7 +559,7 @@ def main() -> None:
 
         mode = spec.get(
             "mode",
-            "File",
+            "FastFile",
         )
 
         channels[name] = (

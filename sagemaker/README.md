@@ -66,6 +66,7 @@ export SAGEMAKER_ROLE=arn:aws:iam::<ACCT>:role/forgery-sagemaker-role
 python sagemaker/launch.py --dry-run --run-name test-run      # print the plan, submit nothing
 python sagemaker/launch.py --run-name <name>                  # spot by default
 python sagemaker/launch.py --run-name <name> --no-spot --no-wait
+python sagemaker/launch.py --config config/smoke.yml --run-name smoke-1 --max-run-hours 1   # smoke slice, 1 epoch
 ```
 
 Region, bucket and channels come from the config's `sagemaker:` block. The
