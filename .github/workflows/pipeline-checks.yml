@@ -44,9 +44,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pyyaml pytest
-      - name: Infra/config agreement tests
-        run: pytest tests/sagemaker -q
+      # CPU torch + the image's own pins, so the trainer-level tests (resume,
+      # metric log format) run here instead of being skipped
+      - name: Install training deps (CPU)
+        run: |
+          pip install torch==2.3.0 torchvision==0.18.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r sagemaker/requirements.txt pyyaml pytest scikit-learn matplotlib seaborn tqdm
+      - name: Pipeline and resume tests
+        run: pytest tests/sagemaker -q -rs
       - name: Shell scripts parse
         run: for f in infra/*.sh tests/sagemaker/*.sh; do bash -n "$f"; done
       - name: Lint workflows

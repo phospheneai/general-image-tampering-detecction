@@ -9,8 +9,9 @@ import sys
 from pathlib import Path
 
 import pytest
-import torch
-from torch.utils.data import Dataset
+
+torch = pytest.importorskip("torch")
+from torch.utils.data import Dataset  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
