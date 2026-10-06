@@ -11,8 +11,8 @@ sys.path.insert(0, str(PROJ_ROOT))   # make authgenforge importable in any kerne
 # Jupyter kernel, whose own launch args (-f /path/to/connection.json, ...)
 # would otherwise be rejected as unrecognized.
 parser = argparse.ArgumentParser()
-parser.add_argument("--config", default=str(PROJ_ROOT / "configs" / "normal" / "train_forensics.yml"),
-                    help="path to a training yml (e.g. configs/normal/train_forensics.yml)")
+parser.add_argument("--config", default=str(PROJ_ROOT / "configs" / "train_forensics.yml"),
+                    help="path to a training yml (e.g. configs/train_forensics.yml)")
 parser.add_argument("--end_epoch", type=int, default=10)
 args, _ = parser.parse_known_args()
 

@@ -12,14 +12,12 @@ Smoke test for the MDS data path, end to end on a tiny synthetic dataset:
      dtypes, value ranges, that labels match the stored column, and that
      tampered samples carry a non-empty mask
 
-With --remote s3://.../<split> it also streams that split from S3 into a
-fresh temp cache dir and loads a few batches in order (only the first shard
-is downloaded). S3 credentials come from boto3's default chain, e.g.
-AWS_PROFILE=<profile> when the machine's instance role can't read the bucket.
+With --mounted <dir> it also loads a few batches, in order, from a real
+split under a mounted S3 prefix (authgenforge/utils/s3_mount.py).
 
 Run from the project root:
     ~/venv/bin/python tests/smoke_test_mds.py
-    AWS_PROFILE=<profile> ~/venv/bin/python tests/smoke_test_mds.py --remote s3://authenta-data-rnd/image-tampering-detection/processed-v1/train
+    ~/venv/bin/python tests/smoke_test_mds.py --mounted ~/data/s3/image-tampering-detection/processed-v1/train
 """
 
 import argparse
@@ -90,7 +88,7 @@ def run(cmd):
 def check_loader(ds, n_batches=2, batch_size=4, shuffle=True):
     loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle, num_workers=2)
     for b, batch in enumerate(loader):
-        assert set(batch) == {"image", "mask", "edge_mask", "label"}, sorted(batch)
+        assert set(batch) == {"image", "mask", "edge_mask", "label", "name"}, sorted(batch)
         bs = batch["image"].shape[0]
         assert batch["image"].shape == (bs, 3, CROP, CROP), batch["image"].shape
         assert batch["mask"].shape == (bs, 1, CROP, CROP), batch["mask"].shape
@@ -104,6 +102,8 @@ def check_loader(ds, n_batches=2, batch_size=4, shuffle=True):
         assert (batch["mask"][batch["label"] == 0] == 0).all(), "authentic sample with a non-zero mask"
         if b == 0:
             for k, v in batch.items():
+                if not torch.is_tensor(v):
+                    continue
                 print(f"    {k:10s} {tuple(v.shape)} {v.dtype} min={v.min():.3f} max={v.max():.3f}")
         if b + 1 >= n_batches:
             break
@@ -111,7 +111,7 @@ def check_loader(ds, n_batches=2, batch_size=4, shuffle=True):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--remote", default=None, help="s3://.../<split> to also test streaming from")
+    ap.add_argument("--mounted", default=None, help="a split dir under a mounted S3 prefix to also read from")
     args = ap.parse_args()
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -158,19 +158,17 @@ def main():
         print(f"    labels returned for all {n} samples match the stored label column")
         check_loader(ds)
 
-    if args.remote:
-        print(f"[5] ForensicsMDSDataset, streaming {args.remote}")
-        with tempfile.TemporaryDirectory() as cache:
-            ds = ForensicsMDSDataset(args.remote, transform=get_val_transforms(crop_size=CROP),
-                                     cache_dir=cache)
-            assert len(ds) > 0
-            raw0 = ds.get_raw(0)
-            print(f"    {len(ds):,} samples; sample 0: {raw0['dataset']} / {raw0['label_str']} / "
-                  f"{raw0['width']}x{raw0['height']}")
-            # in order, not shuffled: consecutive samples share a shard, so
-            # this only downloads the first 512 MB shard instead of one
-            # shard per random sample
-            check_loader(ds, n_batches=3, batch_size=8, shuffle=False)
+    if args.mounted:
+        mounted = os.path.expanduser(args.mounted)
+        print(f"[5] ForensicsMDSDataset, mounted {mounted}")
+        ds = ForensicsMDSDataset(mounted, transform=get_val_transforms(crop_size=CROP))
+        assert len(ds) > 0
+        raw0 = ds.get_raw(0)
+        print(f"    {len(ds):,} samples; sample 0: {raw0['dataset']} / {raw0['label_str']} / "
+              f"{raw0['width']}x{raw0['height']}")
+        # in order, not shuffled: consecutive samples share a shard, so
+        # this only reads from the first shard
+        check_loader(ds, n_batches=3, batch_size=8, shuffle=False)
 
     print("\nPASS")
 

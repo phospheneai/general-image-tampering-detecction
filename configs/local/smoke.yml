@@ -1,19 +1,23 @@
 # Local smoke run (python train.py --smoke): the 64/32-sample smoke slice
-# streamed from S3, 1 epoch, batch 2 — exercises every step of a real
-# local run (GPU preflight, backbone fetch, S3 streaming, AMP train,
+# read from the mounted S3 prefix, 1 epoch, batch 2 — exercises every step
+# of a real local run (GPU preflight, backbone fetch, S3 mount, AMP train,
 # validation, checkpoint, resume) in a few minutes.
 
 name: local_smoke
 model: dinov3_forensics_lora
 type: binary_segmentation
-data_context: normal
 data_format: mds
-cache_dir: null
-cache_limit: null
+
+# same mount as configs/local/train_forensics.yml
+s3_mount:
+  uri: s3://authenta-data-rnd/image-tampering-detection/
+  mount_point: ~/data/s3/image-tampering-detection
+  cache_dir: ~/data/s3_mount_cache
+  max_cache_gb: 50
 
 datasets:
   train:
-    dataroot: s3://authenta-data-rnd/image-tampering-detection/smoke/train
+    dataroot: ~/data/s3/image-tampering-detection/smoke/train
     shard_block: 1
     n_workers: 2
     batch_size: 2
@@ -23,7 +27,7 @@ datasets:
     stateful_loader: true    # same loader class as a real run
     pin_memory: true
   test:
-    dataroot: s3://authenta-data-rnd/image-tampering-detection/smoke/test
+    dataroot: ~/data/s3/image-tampering-detection/smoke/test
     n_workers: 2
     crop_size: 512
     pin_memory: true

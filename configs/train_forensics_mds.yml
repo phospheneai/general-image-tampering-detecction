@@ -1,16 +1,20 @@
+
 # ============================================================
 # General settings
 # ============================================================
 
-name: train_forensics_v1
+name: train_forensics_mds_v1
 model: dinov3_forensics_lora
 type: binary_segmentation
-data_context: normal
 
-# MDS shards (processed-v1), read in place from the SageMaker input channels.
-# Channel name <-> dataroot: the state machine (infra/train-pipeline.asl.json)
-# mounts channel `train` at /opt/ml/input/data/train, etc. Rename one, rename
-# the other — tests/sagemaker/test_infra.py fails if they drift.
+# authgenforge/data/forensics_mds_dataset.py's ForensicsMDSDataset
+# (data_format: mds). dataroot is the MDS split output directory itself
+# (built by packages/mdsconverter/build_mds_dataset.py from configs/mds/
+# mds_dataset.yml's out: — one <out>/<split>/ dir per split, holding
+# index.json + shard.*.mds). A list of roots also works. For a split that
+# lives on S3, mount the bucket first and use the mounted folder:
+#   python -m authgenforge.utils.s3_mount \
+#       s3://authenta-data-rnd/image-tampering-detection/ ~/data/s3/image-tampering-detection
 data_format: mds
 
 
@@ -21,20 +25,24 @@ data_format: mds
 datasets:
 
   train:
-    # s3://authenta-data-rnd/image-tampering-detection/processed-v1/train/
-    dataroot: /opt/ml/input/data/train
-    n_workers: 8
+    dataroot:
+      - /home/ubuntu/data/processed/processed-v1/train
+      # - /home/ubuntu/data/s3/image-tampering-detection/processed-v1/train   (mounted S3)
+    n_workers: 4
     batch_size: 4
     crop_size: 512
     buffer_size: 1000
     total_samples: null
+    # StatefulDataLoader (requires torchdata) so a resumed run picks up at
+    # the exact shuffle position instead of restarting the epoch.
     stateful_loader: true
     pin_memory: true
 
   test:
-    # s3://authenta-data-rnd/image-tampering-detection/processed-v1/test/
-    dataroot: /opt/ml/input/data/test
-    n_workers: 4
+    dataroot:
+      - /home/ubuntu/data/processed/processed-v1/test
+      # - /home/ubuntu/data/s3/image-tampering-detection/processed-v1/test   (mounted S3)
+    n_workers: 2
     crop_size: 512
     pin_memory: true
 
@@ -46,9 +54,7 @@ datasets:
 structure:
 
   backbone:
-    # config.json + model.safetensors, from
-    # s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/
-    model_path: /opt/ml/input/data/artifacts
+    model_path: ../artifacts/mirror/dinov3-vitl16
     model_type: dinov3_vitl16
     lora_rank: 32
     lora_alpha: 64
@@ -128,29 +134,30 @@ train_settings:
   # Checkpointing
   # ----------------------------------------------------------
 
-  # SageMaker syncs this directory to S3 (CheckpointConfig) and restores it on
-  # a restart, which is what train.py's resume detection relies on. Anything
-  # written elsewhere is lost when the instance stops.
-  save_checkpoint_folder_path: /opt/ml/checkpoints
+  save_checkpoint_folder_path: ../checkpoints
 
   load_checkpoint_file_path:
 
   resume_dataloader: true
 
+
 # ============================================================
-# SageMaker (sagemaker/launch.py only)
+# Evaluation settings
 # ============================================================
 #
-# Read by the laptop launcher, NOT by the automated pipeline: the state
-# machine (infra/train-pipeline.asl.json) carries its own copy of these S3
-# locations in InputDataConfig. Change one, change both.
+# Consumed by authgenforge/evals/evaluator.py's evaluate_from_yml().
+# Independent of train_settings.load_checkpoint_file_path (that one
+# resumes training; this is "which weights to evaluate" — typically
+# the <name>_best.pth written during training).
 
-sagemaker:
-  region: us-east-1
-  output_bucket: authenta-data-rnd
-  checkpoint_prefix: image-tampering-detection/sagemaker/checkpoints
-  output_prefix: image-tampering-detection/sagemaker/output
-  inputs:
-    train:     {uri: s3://authenta-data-rnd/image-tampering-detection/processed-v1/train/, mode: FastFile}
-    test:      {uri: s3://authenta-data-rnd/image-tampering-detection/processed-v1/test/,  mode: FastFile}
-    artifacts: {uri: s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/, mode: File}
+eval_settings:
+
+  checkpoint_path: ../checkpoints/train_forensics_mds_v1/train_forensics_mds_v1_best.pth
+
+  image_size: 512
+  threshold: 0.5
+  batch_size: 4
+  num_workers: 4
+  half_precision: true
+
+  output_dir:

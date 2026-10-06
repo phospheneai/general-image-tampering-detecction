@@ -6,8 +6,7 @@ _DATASET_BACKENDS dict for how it gets selected via config
 (data_format: mds) without touching calling code.
 
 Accepts the same kwargs as dataloader.py's build_dataloaders (the folder
-backend) plus cache_dir / cache_limit for s3:// dataroots, and returns
-(train_loader, test_loader).
+backend) and returns (train_loader, test_loader).
 
 The train loader is a torchdata StatefulDataLoader by default
 (stateful=True), so a resumed run picks up at the exact shuffle position.
@@ -33,18 +32,16 @@ def build_mds_dataloaders(
     pin_memory: bool = True,
     buffer_size: int = 1000,
     stateful: bool = True,
-    data_context: str = "normal",
-    cache_dir: str | None = None,
-    cache_limit: str | int | None = None,
     shard_block: int | None = None,
 ) -> tuple[DataLoader, DataLoader]:
     """
-    buffer_size and data_context are accepted for interface parity with
-    the folder backend — unused here.
+    buffer_size is accepted for interface parity with the folder
+    backend — unused here.
 
     shard_block: if set, shuffle shard-locally (ShardBlockSampler, blocks
-    of this many shards, next block prefetched) instead of over the whole
-    split — for an s3:// dataroot with a cache_limit smaller than the split.
+    of this many shards) instead of over the whole split — keeps reads
+    local to a few shards at a time, which matters when the split is a
+    mounted S3 prefix rather than a local disk.
     """
 
     test_num_workers = (
@@ -57,8 +54,6 @@ def build_mds_dataloaders(
         train_dir=train_dir,
         test_dir=test_dir,
         crop_size=crop_size,
-        cache_dir=cache_dir,
-        cache_limit=cache_limit,
     )
 
     if stateful:

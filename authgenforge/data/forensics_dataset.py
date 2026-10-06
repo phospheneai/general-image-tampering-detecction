@@ -102,6 +102,7 @@ class ForensicsDataset(Dataset):
             "mask": mask,
             "edge_mask": edge_mask,
             "label": torch.tensor(label, dtype=torch.long),
+            "name": str(image_path),
         }
 
 
@@ -145,9 +146,7 @@ def build_forensics_datasets(
     test_dir: str | list[str],
     crop_size: int = 512,
     buffer_size: int = 1000,
-    data_context: str = "normal",
     data_format: str = "folder",
-    cache_dir: str | None = None,
 ) -> tuple[Dataset, Dataset]:
     """
     Build the train/test forgery segmentation datasets.
@@ -156,12 +155,11 @@ def build_forensics_datasets(
         folder -> ForensicsDataset, train_dir/test_dir are
                   images/ + masks/ folders
         mds    -> ForensicsMDSDataset, train_dir/test_dir are MDS
-                  split dirs (or s3:// URLs, streamed into cache_dir)
+                  split dirs (a mounted S3 prefix counts as one)
                   written by packages/mdsconverter/build_mds_dataset.py
 
-    buffer_size and data_context are accepted for interface parity with
-    the streaming, multi-domain pipeline (see sagemaker/README.md's
-    "Current status" section) — neither backend uses them yet.
+    buffer_size is accepted for interface parity with a streaming
+    pipeline — neither backend uses it yet.
     """
 
     if data_format == "mds":
@@ -172,7 +170,6 @@ def build_forensics_datasets(
             train_dir=train_dir,
             test_dir=test_dir,
             crop_size=crop_size,
-            cache_dir=cache_dir,
         )
 
     if data_format != "folder":

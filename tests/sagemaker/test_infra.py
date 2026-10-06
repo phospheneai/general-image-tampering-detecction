@@ -26,7 +26,7 @@ ACCOUNT, REGION = "123456789012", "us-east-1"
 
 # (state machine name, ASL file, task state, config the ASL runs)
 PIPELINES = [
-    ("forgery-training", "train-pipeline.asl.json", "Train", "config/normal/train_forensics.yml"),
+    ("forgery-training", "train-pipeline.asl.json", "Train", "config/train_forensics.yml"),
     ("forgery-smoke", "smoke-pipeline.asl.json", "SmokeTrain", "config/smoke.yml"),
 ]
 

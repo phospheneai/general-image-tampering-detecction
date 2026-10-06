@@ -10,7 +10,7 @@ Example:
 
 Region, bucket, and input channels come from the `sagemaker:` block of
 
-    sagemaker/config/normal/train_forensics.yml
+    sagemaker/config/train_forensics.yml
 
 The configuration path is relative to `sagemaker/`, which is also the
 estimator's source_dir.
@@ -82,7 +82,7 @@ REPO_ROOT = Path(
 SM_SRC = REPO_ROOT / "sagemaker"
 
 DEFAULT_CONFIG = (
-    "config/normal/train_forensics.yml"
+    "config/train_forensics.yml"
 )
 
 

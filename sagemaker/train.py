@@ -250,7 +250,7 @@ def main() -> None:
 
     parser.add_argument(
         "--config",
-        default="config/normal/train_forensics.yml",
+        default="config/train_forensics.yml",
         help=(
             "Training YAML configuration relative to "
             "the SageMaker source directory."

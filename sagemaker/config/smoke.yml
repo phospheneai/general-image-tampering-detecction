@@ -10,7 +10,6 @@
 name: sm_smoke
 model: dinov3_forensics_lora
 type: binary_segmentation
-data_context: normal
 data_format: mds
 
 datasets:

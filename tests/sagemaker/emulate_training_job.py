@@ -24,6 +24,7 @@ script recreates that layout under --root and verifies each part.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -140,6 +141,13 @@ def local(root: Path, crop_size: int | None) -> None:
 # check
 # ------------------------------------------------------------------
 
+def _csv_rows(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    with path.open(newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
 def check(root: Path, log: Path, returncode: int, expect_resume: bool, end_epoch: int) -> None:
     text = log.read_text(encoding="utf-8", errors="replace")
     problems = []
@@ -174,6 +182,22 @@ def check(root: Path, log: Path, returncode: int, expect_resume: bool, end_epoch
             problems.append(f"missing checkpoint {path}")
         else:
             print(f"[check] {path.relative_to(root)}  {path.stat().st_size / 2**20:.0f} MiB")
+
+    # result files: one metrics row per epoch, one prediction row per test image
+    metrics_csv = exp / "metrics.csv"
+    rows = _csv_rows(metrics_csv)
+    if [r.get("epoch") for r in rows] != [str(e) for e in range(1, end_epoch + 1)]:
+        problems.append(f"{metrics_csv} should have one row for each of epochs 1..{end_epoch}")
+    else:
+        print(f"[check] {metrics_csv.relative_to(root)}  {len(rows)} epoch row(s)")
+
+    wanted = ["image_name", "ground_truth", "probability", "predicted_class", "iou"]
+    found = sorted(exp.glob(f"*/predictions/val_epoch_{end_epoch}.csv"))
+    rows = _csv_rows(found[-1]) if found else []
+    if not rows or list(rows[0]) != wanted:
+        problems.append(f"no per-image val_epoch_{end_epoch}.csv with columns {wanted}")
+    else:
+        print(f"[check] {found[-1].relative_to(root)}  {len(rows)} image row(s)")
 
     if problems:
         print("\n[check] FAILED:\n  - " + "\n  - ".join(problems))

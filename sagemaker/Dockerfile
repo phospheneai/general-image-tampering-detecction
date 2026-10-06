@@ -44,4 +44,4 @@ COPY sagemaker/    /opt/ml/code/sagemaker/
 # parse_known_args, so the legacy `train` argument SageMaker can append is
 # dropped harmlessly.
 ENTRYPOINT ["python", "/opt/ml/code/sagemaker/train.py"]
-CMD ["--config", "config/normal/train_forensics.yml"]
+CMD ["--config", "config/train_forensics.yml"]

@@ -18,9 +18,9 @@ on:
         description: "Training config inside the image (smoke has its own workflow)"
         required: false
         type: choice
-        default: "config/normal/train_forensics.yml"
+        default: "config/train_forensics.yml"
         options:
-          - "config/normal/train_forensics.yml"
+          - "config/train_forensics.yml"
       end_epoch:
         description: "Stop after this epoch"
         required: false
@@ -70,7 +70,7 @@ jobs:
           aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
             --image-ids imageTag="$IMAGE_TAG" --region "$AWS_REGION" >/dev/null
           aws s3 ls "$DATA/artifacts/dinov3-vitl16/model.safetensors" >/dev/null \
-            || { echo "::error::DINOv3 backbone missing at $DATA/artifacts/dinov3-vitl16/ (infra/README.md)"; exit 1; }
+            || { echo "::error::DINOv3 backbone missing at $DATA/artifacts/dinov3-vitl16/ (sagemaker/README.md)"; exit 1; }
 
           # SageMaker job names must be unique forever and match [a-zA-Z0-9-]{1,63};
           # the execution name becomes the job name, so it is sanitised and stamped.

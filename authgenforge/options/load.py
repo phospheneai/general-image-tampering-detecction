@@ -68,7 +68,7 @@ def _cfg(value, default):
 
 # Every backend here accepts the same kwargs (train_dir, test_dir,
 # crop_size, batch_size, num_workers, test_num_workers, pin_memory,
-# buffer_size, stateful, data_context) and returns
+# buffer_size, stateful) and returns
 # (train_loader, test_loader) — that's what keeps switching backends a
 # one-line config change (data_format:) instead of a call-site rewrite.
 # Backend-specific extras are passed only to that backend (see
@@ -81,12 +81,8 @@ _DATASET_BACKENDS = {
 
 def _backend_extra_kwargs(backend: str, opt: dict) -> dict:
     if backend == "mds":
-        # only used when a dataroot is an s3:// URL — see
-        # authgenforge/data/forensics_mds_dataset.py
         return {
-            "cache_dir": opt.get("cache_dir"),
-            "cache_limit": opt.get("cache_limit"),
-            # shard-local shuffling for a bounded S3 cache — see
+            # shard-local shuffling — see
             # authgenforge/data/shard_block_sampler.py
             "shard_block": opt["datasets"]["train"].get("shard_block"),
         }
@@ -115,11 +111,6 @@ def get_dataloaders_from_yml(
 
     train_cfg = opt["datasets"]["train"]
     test_cfg = opt["datasets"]["test"]
-
-    data_context = _cfg(
-        opt.get("data_context"),
-        "normal",
-    )
 
     backend = _cfg(
         opt.get("data_format"),
@@ -170,8 +161,6 @@ def get_dataloaders_from_yml(
             train_cfg.get("stateful_loader"),
             True,
         ),
-
-        data_context=data_context,
 
         **_backend_extra_kwargs(backend, opt),
     )
@@ -673,17 +662,10 @@ def get_sample_from_yml(
             1000,
         ),
 
-        data_context=_cfg(
-            opt.get("data_context"),
-            "normal",
-        ),
-
         data_format=_cfg(
             opt.get("data_format"),
             "folder",
         ),
-
-        cache_dir=opt.get("cache_dir"),
     )
 
     loader = DataLoader(

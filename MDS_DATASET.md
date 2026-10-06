@@ -127,12 +127,12 @@ from authgenforge.data.forensics_mds_dataset import ForensicsMDSDataset
 ds = ForensicsMDSDataset("/home/ubuntu/data/processed/processed-v1/train",
                          transform=get_train_transforms(crop_size=512))
 
-# or straight from S3 (needs s3:GetObject; shards cached under cache_dir).
-# Credentials come from boto3's default chain — e.g. `export AWS_PROFILE=<profile>`
-# when the machine's instance role has no access to the bucket.
-ds = ForensicsMDSDataset("s3://authenta-data-rnd/image-tampering-detection/processed-v1/train",
-                         transform=get_train_transforms(crop_size=512),
-                         cache_dir="/home/ubuntu/data/mds_cache")
+# or from S3, mounted as a folder first (needs mount-s3: scripts/install_mountpoint.sh,
+# and s3:ListBucket + s3:GetObject; credentials from the usual AWS chain):
+#   python -m authgenforge.utils.s3_mount \
+#       s3://authenta-data-rnd/image-tampering-detection/ ~/data/s3/image-tampering-detection
+ds = ForensicsMDSDataset("/home/ubuntu/data/s3/image-tampering-detection/processed-v1/train",
+                         transform=get_train_transforms(crop_size=512))
 
 loader = DataLoader(ds, batch_size=8, shuffle=True, num_workers=4)
 ```
@@ -149,20 +149,19 @@ For raw bytes and metadata without decoding: `ds.get_raw(i)`, or
 
 On any machine with the repo + `bash scripts/install_deps.sh` +
 `bash scripts/download_artifacts.sh` (model weights), point the training
-config at the processed dataset — local shards, or the S3 copy streamed on
-demand (no manual dataset download):
+config at the processed dataset — local shards, or the S3 copy mounted as a
+folder (no manual dataset download):
 
 ```bash
-python tests/smoke_test_pipeline.py --config configs/normal/train_forensics_mds.yml   # a few real steps
-python tests/overfit_single_batch.py --config configs/normal/train_forensics_mds.yml
+python tests/smoke_test_pipeline.py --config configs/train_forensics_mds.yml   # a few real steps
+python tests/overfit_single_batch.py --config configs/train_forensics_mds.yml
 ```
 
 
-[`configs/normal/train_forensics_mds.yml`](configs/normal/train_forensics_mds.yml):
+[`configs/train_forensics_mds.yml`](configs/train_forensics_mds.yml):
 
 ```yaml
 data_format: mds                    # -> _DATASET_BACKENDS["mds"] in authgenforge/options/load.py
-cache_dir: /home/ubuntu/data/mds_cache   # only for s3:// dataroots
 datasets:
   train:
     dataroot: [/home/ubuntu/data/processed/processed-v1/train]

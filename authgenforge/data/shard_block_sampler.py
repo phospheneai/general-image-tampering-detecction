@@ -1,12 +1,11 @@
 """
-Shard-local shuffling for MDS splits streamed from S3 into a bounded cache.
+Shard-local shuffling for MDS splits read from a mounted S3 prefix.
 
 The default train loader shuffles over the whole split (shuffle=True), so
 consecutive samples come from random shards. That is fine when every shard
-is reachable cheaply (local disk, SageMaker FastFile), but with an s3://
-dataroot and a cache_limit smaller than the split (processed-v1 train is
-~1.1 TB), almost every sample would evict a shard and download another
-~512 MB one.
+is on a local disk, but when the split is a mounted S3 prefix
+(authgenforge/utils/s3_mount.py; processed-v1 train is ~1.1 TB in ~535 MB
+shards), every sample would be a read from a different, far-away file.
 
 ShardBlockSampler instead:
 
@@ -14,9 +13,8 @@ ShardBlockSampler instead:
   2. groups it into blocks of `block_shards` shards,
   3. yields the samples of one block in random order, then the next block.
 
-So the cache only has to hold ~2 blocks, every shard is downloaded once per
-epoch, and a background thread downloads the next block's shards while the
-current one trains. Mixing is across `block_shards` random shards at a
+So reads stay within `block_shards` files at a time and every shard is
+visited once per epoch. Mixing is across `block_shards` random shards at a
 time (the split's shards are already class-interleaved by
 build_mds_dataset.py).
 
@@ -50,7 +48,7 @@ class ShardBlockSampler(Sampler[int]):
         samples_per_shard: sample count of each shard, in the dataset's
             global index order (StreamingDataset.samples_per_shard).
         block_shards: shards mixed together at a time.
-        prefetch: optional callable(shard_id) that downloads a shard;
+        prefetch: optional callable(shard_id) that gets a shard ready;
             called from a background thread for the next block.
         """
 

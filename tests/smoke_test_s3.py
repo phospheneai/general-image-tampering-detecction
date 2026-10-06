@@ -1,18 +1,19 @@
 """
-Smoke test: load the real processed-v1 dataset straight from S3 through
-ForensicsMDSDataset + a multi-worker DataLoader, exactly as training does.
+Smoke test: load the real processed-v1 dataset from S3, mounted as a
+folder, through ForensicsMDSDataset + a multi-worker DataLoader, exactly as
+training does. The bucket prefix is mounted read-only first if it is not
+already (authgenforge/utils/s3_mount.py, needs `mount-s3`).
 
 For each split (train, test):
-  1. opens s3://.../processed-v1/<split> with a fresh, empty cache dir
+  1. opens <mount>/processed-v1/<split>
   2. checks it is a torch Dataset with the expected number of samples
   3. reads sample metadata (dataset, label, original path, original size)
   4. checks a tampered sample comes back with label 1 and a non-empty mask,
      and an authentic one with label 0 and an all-zero mask
   5. loads batches with DataLoader(num_workers=4) and checks keys
-     (image, mask, edge_mask, label), shapes, dtypes and value ranges
+     (image, mask, edge_mask, label, name), shapes, dtypes and value ranges
 
-Samples are read in order, so each split only downloads its first shard
-(512 MB) plus index.json. The cache dir is deleted at the end.
+Samples are read in order, so each split only reads from its first shard.
 
 S3 credentials come from boto3's default chain — set AWS_PROFILE when the
 machine's instance role can't read the bucket. Run from the project root:
@@ -22,9 +23,7 @@ machine's instance role can't read the bucket. Run from the project root:
 
 import argparse
 import os
-import shutil
 import sys
-import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,17 +33,19 @@ from torch.utils.data import DataLoader, Dataset
 
 from authgenforge.augmentations.presets import get_train_transforms, get_val_transforms
 from authgenforge.data.forensics_mds_dataset import ForensicsMDSDataset
+from authgenforge.utils.s3_mount import S3MountError, mount_s3
 
-S3_ROOT = "s3://authenta-data-rnd/image-tampering-detection/processed-v1"
+S3_URI = "s3://authenta-data-rnd/image-tampering-detection/"
+MOUNT_POINT = "~/data/s3/image-tampering-detection"
 EXPECTED = {"train": 1_827_437, "test": 27_604}  # processed-v1 sample counts (DATASETS.md)
 
 
-def check_split(split, crop, cache_dir, n_batches, batch_size):
-    url = f"{S3_ROOT}/{split}"
+def check_split(root, split, crop, n_batches, batch_size):
+    url = f"{root}/{split}"
     tf = get_train_transforms(crop_size=crop) if split == "train" else get_val_transforms(crop_size=crop)
     t0 = time.time()
 
-    ds = ForensicsMDSDataset(url, transform=tf, cache_dir=cache_dir)
+    ds = ForensicsMDSDataset(url, transform=tf)
     assert isinstance(ds, Dataset), type(ds)
     assert len(ds) == EXPECTED[split], f"{split}: {len(ds)} samples, expected {EXPECTED[split]}"
     print(f"  torch Dataset: yes | samples: {len(ds):,} (expected {EXPECTED[split]:,})")
@@ -71,7 +72,7 @@ def check_split(split, crop, cache_dir, n_batches, batch_size):
 
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=4)
     for b, batch in enumerate(loader):
-        assert set(batch) == {"image", "mask", "edge_mask", "label"}, sorted(batch)
+        assert set(batch) == {"image", "mask", "edge_mask", "label", "name"}, sorted(batch)
         bs = batch["image"].shape[0]
         assert batch["image"].shape == (bs, 3, crop, crop), batch["image"].shape
         assert batch["mask"].shape == (bs, 1, crop, crop), batch["mask"].shape
@@ -83,7 +84,7 @@ def check_split(split, crop, cache_dir, n_batches, batch_size):
         assert batch["label"].shape == (bs,) and batch["label"].dtype == torch.int64, batch["label"]
         assert set(batch["label"].tolist()) <= {0, 1}, batch["label"]
         assert (batch["mask"][batch["label"] == 0] == 0).all(), "authentic sample with a non-zero mask"
-        print(f"  batch {b}: " + ", ".join(f"{k}={tuple(v.shape)}" for k, v in batch.items())
+        print(f"  batch {b}: " + ", ".join(f"{k}={tuple(v.shape)}" for k, v in batch.items() if torch.is_tensor(v))
               + f"  labels={batch['label'].tolist()}")
         if b + 1 >= n_batches:
             break
@@ -97,35 +98,21 @@ def main():
     ap.add_argument("--crop-size", type=int, default=512)
     ap.add_argument("--batches", type=int, default=3)
     ap.add_argument("--batch-size", type=int, default=8)
-    ap.add_argument("--cache-dir", default=None,
-                    help="Where shards are cached. Default: a fresh temp dir, deleted afterwards.")
+    ap.add_argument("--mount-point", default=MOUNT_POINT,
+                    help=f"where {S3_URI} is (or gets) mounted")
     args = ap.parse_args()
 
-    # fail fast with a readable reason: streaming reports a 403 on
-    # index.json as "not found", which hides a missing-permission problem
-    import boto3
-    from botocore.exceptions import ClientError, NoCredentialsError
-    bucket, prefix = S3_ROOT[len("s3://"):].split("/", 1)
     try:
-        who = boto3.client("sts").get_caller_identity()["Arn"]
-        boto3.client("s3").head_object(Bucket=bucket, Key=f"{prefix}/{args.splits[0]}/index.json")
-    except (ClientError, NoCredentialsError) as e:
-        sys.exit(f"cannot read {S3_ROOT}/{args.splits[0]}/index.json as "
-                 f"{locals().get('who', 'no credentials')} ({e}).\n"
-                 f"Use credentials with s3:GetObject on {S3_ROOT}/*, e.g. "
-                 f"AWS_PROFILE=<profile> python tests/smoke_test_s3.py")
-    print(f"S3 access OK as {who}")
+        mount = mount_s3(S3_URI, args.mount_point)
+    except S3MountError as e:
+        sys.exit(f"{e}\nNeeds credentials with s3:ListBucket + s3:GetObject on {S3_URI}*, "
+                 "e.g. AWS_PROFILE=<profile> python tests/smoke_test_s3.py")
+    root = os.path.join(mount, "processed-v1")
+    print(f"{S3_URI} mounted at {mount}")
 
-    cache = args.cache_dir or tempfile.mkdtemp(prefix="mds_s3_smoke_")
-    try:
-        for split in args.splits:
-            print(f"\n[{split}] streaming {S3_ROOT}/{split}  (cache: {cache})")
-            check_split(split, args.crop_size, cache, args.batches, args.batch_size)
-        downloaded = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(cache) for f in fs)
-        print(f"\ndownloaded from S3: {downloaded / 2**20:.0f} MiB")
-    finally:
-        if not args.cache_dir:
-            shutil.rmtree(cache, ignore_errors=True)
+    for split in args.splits:
+        print(f"\n[{split}] reading {root}/{split}")
+        check_split(root, split, args.crop_size, args.batches, args.batch_size)
 
     print("\nPASS")
 

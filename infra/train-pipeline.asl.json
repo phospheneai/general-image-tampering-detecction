@@ -1,5 +1,5 @@
 {
-  "Comment": "Forgery-segmentation retraining pipeline. Creates an on-demand GPU SageMaker training job that pulls the ECR image and runs sagemaker/train.py. InputDataConfig mounts the S3 data at /opt/ml/input/data/<channel>/ — the dataroots in sagemaker/config/normal/*.yml. Execution input: {image_uri, config, end_epoch, max_runtime_seconds}; the job name is the execution name.",
+  "Comment": "Forgery-segmentation retraining pipeline. Creates an on-demand GPU SageMaker training job that pulls the ECR image and runs sagemaker/train.py. InputDataConfig mounts the S3 data at /opt/ml/input/data/<channel>/ — the dataroots in sagemaker/config/*.yml. Execution input: {image_uri, config, end_epoch, max_runtime_seconds}; the job name is the execution name.",
   "StartAt": "Train",
   "States": {
     "Train": {

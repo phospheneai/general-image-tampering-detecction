@@ -16,7 +16,6 @@ def build_dataloaders(
     pin_memory: bool = True,
     buffer_size: int = 1000,
     stateful: bool = True,
-    data_context: str = "normal",
     data_format: str = "folder",
 ) -> tuple[DataLoader, DataLoader]:
 
@@ -31,7 +30,6 @@ def build_dataloaders(
         test_dir=test_dir,
         crop_size=crop_size,
         buffer_size=buffer_size,
-        data_context=data_context,
         data_format=data_format,
     )
 

@@ -5,7 +5,7 @@
 # Unlike Run training this WAITS and fails the job if training fails, so it is a
 # real red/green check before you commit to a multi-day run.
 #
-# Needs (see infra/README.md, "One-time setup"):
+# Needs (see sagemaker/README.md, Step 6):
 #   s3://authenta-data-rnd/image-tampering-detection/smoke/{train,test}/index.json
 #   s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/model.safetensors
 name: Smoke test
@@ -56,7 +56,7 @@ jobs:
           }
           need "$DATA/smoke/train/index.json" "run: python scripts/make_smoke_mds.py --upload"
           need "$DATA/smoke/test/index.json"  "run: python scripts/make_smoke_mds.py --upload"
-          need "$DATA/artifacts/dinov3-vitl16/model.safetensors" "upload the DINOv3 backbone (infra/README.md)"
+          need "$DATA/artifacts/dinov3-vitl16/model.safetensors" "upload the DINOv3 backbone (sagemaker/README.md)"
           exit $fail
 
       - name: Start the smoke run

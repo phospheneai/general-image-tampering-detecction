@@ -5,7 +5,7 @@ If it can't, that's an architecture/loss wiring bug — check this before
 spending GPU time debugging a full run that isn't converging.
 Run from the project root:
     python tests/overfit_single_batch.py
-    python tests/overfit_single_batch.py --config configs/normal/train_forensics_mds.yml   # MDS dataset
+    python tests/overfit_single_batch.py --config configs/train_forensics_mds.yml   # MDS dataset
 """
 
 import os
@@ -21,7 +21,7 @@ from authgenforge.options.load import (
     get_sample_from_yml,
 )
 
-CONFIG_PATH = "configs/normal/train_forensics.yml"
+CONFIG_PATH = "configs/train_forensics.yml"
 N_ITERS     = 200
 LR          = 5e-4
 

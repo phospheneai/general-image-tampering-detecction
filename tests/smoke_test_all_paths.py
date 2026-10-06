@@ -1,13 +1,13 @@
 """
 Smoke test: every way the forensics datasets can be loaded, against the real
-processed-v1 (local copy + S3) — both backends, direct and via the training
+processed-v1 (local copy + mounted S3) — both backends, direct and via the training
 config, one or several roots, 0 or 4 DataLoader workers, the modules'
 self-tests, and mid-epoch resume. Each case checks the batch contract:
-{image (B,3,H,W) float32, mask (B,1,H,W), edge_mask (B,1,H,W), label (B,) int64 0/1},
+{image (B,3,H,W) float32, mask (B,1,H,W), edge_mask (B,1,H,W), label (B,) int64 0/1, name [B] str},
 with authentic (label 0) samples carrying an all-zero mask.
 
-S3 cases need credentials with s3:GetObject on processed-v1 (e.g. AWS_PROFILE);
-skip them with --skip-s3. Run from the project root:
+S3 cases read processed-v1 from a mounted S3 prefix (--s3-root, see
+authgenforge/utils/s3_mount.py); skip them with --skip-s3. Run from the project root:
     AWS_PROFILE=<profile> python tests/smoke_test_all_paths.py
     python tests/smoke_test_all_paths.py --skip-s3
     python tests/smoke_test_all_paths.py --local-root /path/to/processed-v1
@@ -25,12 +25,13 @@ from authgenforge.data.forensics_mds_dataset import ForensicsMDSDataset
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--local-root", default="/home/ubuntu/data/processed/processed-v1")
-ap.add_argument("--s3-root", default="s3://authenta-data-rnd/image-tampering-detection/processed-v1")
-ap.add_argument("--skip-s3", action="store_true", help="skip the cases that stream from S3")
+ap.add_argument("--s3-root", default=os.path.expanduser("~/data/s3/image-tampering-detection/processed-v1"),
+                help="processed-v1 under the mounted S3 prefix")
+ap.add_argument("--skip-s3", action="store_true", help="skip the cases that read the mounted S3 prefix")
 ARGS = ap.parse_args()
 
 LOCAL, S3 = ARGS.local_root.rstrip("/"), ARGS.s3_root.rstrip("/")
-KEYS = {"image", "mask", "edge_mask", "label"}
+KEYS = {"image", "mask", "edge_mask", "label", "name"}
 SCRATCH = None  # tempfile default dir
 results = []
 
@@ -86,56 +87,52 @@ def _():
     return f"len={len(ds):,}, last sample split={last['split']}"
 
 
-@case("4. S3 train + test, direct, num_workers=4", s3=True)
+@case("4. mounted S3 train + test, direct, num_workers=4", s3=True)
 def _():
     out = []
-    with tempfile.TemporaryDirectory(dir=SCRATCH) as cache:
-        for split, n in (("train", 1_827_437), ("test", 27_604)):
-            ds = ForensicsMDSDataset(f"{S3}/{split}", transform=get_val_transforms(crop_size=512), cache_dir=cache)
-            assert len(ds) == n
-            out.append(check_batch(next(iter(DataLoader(ds, batch_size=8, shuffle=False, num_workers=4)))))
+    for split, n in (("train", 1_827_437), ("test", 27_604)):
+        ds = ForensicsMDSDataset(f"{S3}/{split}", transform=get_val_transforms(crop_size=512))
+        assert len(ds) == n
+        out.append(check_batch(next(iter(DataLoader(ds, batch_size=8, shuffle=False, num_workers=4)))))
     return out
 
 
 @case("5. training config, local dataroot (get_dataloaders_from_yml, StatefulDataLoader)")
 def _():
     from authgenforge.options.load import get_dataloaders_from_yml
-    tl, vl = get_dataloaders_from_yml("configs/normal/train_forensics_mds.yml")
+    tl, vl = get_dataloaders_from_yml("configs/train_forensics_mds.yml")
     assert type(tl).__name__ == "StatefulDataLoader", type(tl)
     a = check_batch(next(iter(tl)))
     b = check_batch(next(iter(vl)))
     return f"{type(tl).__name__} train={a} test={b}"
 
 
-@case("6. training config, s3:// dataroot + cache_dir", s3=True)
+@case("6. training config, mounted S3 dataroot", s3=True)
 def _():
     from authgenforge.options.load import get_dataloaders_from_yml
     from authgenforge.options.option_utils import parse_yml
-    cfg = yaml.safe_load(open("configs/normal/train_forensics_mds.yml"))
-    cache = tempfile.mkdtemp(dir=SCRATCH)
-    cfg["cache_dir"] = cache
+    cfg = yaml.safe_load(open("configs/train_forensics_mds.yml"))
     cfg["datasets"]["train"]["dataroot"] = [f"{S3}/train"]
     cfg["datasets"]["test"]["dataroot"] = [f"{S3}/test"]
-    p = os.path.join("configs/normal", "_check_s3.yml")  # same dir, so relative paths resolve as usual
+    p = os.path.join("configs", "_check_s3.yml")  # same dir, so relative paths resolve as usual
     yaml.safe_dump(cfg, open(p, "w"))
     try:
         assert parse_yml(p)["datasets"]["train"]["dataroot"] == [f"{S3}/train"], parse_yml(p)["datasets"]["train"]["dataroot"]
         tl, vl = get_dataloaders_from_yml(p)
         assert len(tl.dataset) == 1_827_437 and len(vl.dataset) == 27_604
         # train loader shuffles (one shard per random sample) — read sample 0 directly;
-        # the test loader reads in order, so a real batch only needs the first shard
+        # the test loader reads in order, so a real batch only reads the first shard
         s = tl.dataset[0]
         assert set(s) == KEYS and s["label"].item() in (0, 1)
         return f"train sample0 label={s['label'].item()}, test batch={check_batch(next(iter(vl)))}"
     finally:
         os.remove(p)
-        shutil.rmtree(cache, ignore_errors=True)
 
 
 @case("7. get_sample_from_yml (used by tests/overfit_single_batch.py)")
 def _():
     from authgenforge.options.load import get_sample_from_yml
-    return check_batch(get_sample_from_yml("configs/normal/train_forensics_mds.yml"))
+    return check_batch(get_sample_from_yml("configs/train_forensics_mds.yml"))
 
 
 @case("8. build_forensics_datasets(data_format='mds')")

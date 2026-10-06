@@ -350,6 +350,12 @@ class SegmentationTrainer:
             self.log_dir / "log.txt"
         )
 
+        # One row per epoch. Lives next to the checkpoints, not in the
+        # dated run folder, so a resumed job keeps appending to one file.
+        self.metrics_csv = (
+            self.ckpt_dir / "metrics.csv"
+        )
+
         self.log = logger or get_logger(
             name=experiment_name,
             log_dir=str(
@@ -458,6 +464,155 @@ class SegmentationTrainer:
             file.write(
                 message + "\n"
             )
+
+    # ==========================================================
+    # Result files
+    # ==========================================================
+
+    METRIC_NAMES = (
+        "loss",
+        "iou",
+        "f1",
+        "precision",
+        "recall",
+        "accuracy",
+    )
+
+    PREDICTION_FIELDS = (
+        "image_name",
+        "ground_truth",
+        "probability",
+        "predicted_class",
+        "iou",
+    )
+
+    def _append_epoch_metrics(
+        self,
+        epoch: int,
+        train_metrics: dict,
+        val_metrics: dict,
+    ) -> None:
+        """
+        Append this epoch's train/val metrics to metrics.csv.
+        """
+
+        fieldnames = ["epoch"] + [
+            f"{phase}_{name}"
+            for phase in ("train", "val")
+            for name in self.METRIC_NAMES
+        ]
+
+        row = {"epoch": epoch}
+
+        for phase, metrics in (
+            ("train", train_metrics),
+            ("val", val_metrics),
+        ):
+            for name in self.METRIC_NAMES:
+                row[f"{phase}_{name}"] = (
+                    f"{metrics.get(name, 0):.6f}"
+                )
+
+        is_new = not self.metrics_csv.is_file()
+
+        with open(
+            self.metrics_csv,
+            "a",
+            newline="",
+            encoding="utf-8",
+        ) as file:
+            writer = csv.DictWriter(
+                file,
+                fieldnames=fieldnames,
+            )
+
+            if is_new:
+                writer.writeheader()
+
+            writer.writerow(row)
+
+    def _prediction_rows(
+        self,
+        batch: dict,
+        probabilities: torch.Tensor,
+        masks: torch.Tensor,
+        first_index: int,
+    ) -> list[dict]:
+        """
+        One row per validation image.
+
+        ground_truth     image-level class, 0 authentic / 1 tampered
+        probability      highest tampered-pixel probability in the image
+        predicted_class  1 if any pixel is predicted tampered (>= 0.5)
+        iou              predicted mask vs ground-truth mask for this image;
+                         1.0 when both are empty
+        """
+
+        batch_size = probabilities.size(0)
+
+        probabilities = (
+            probabilities.detach()
+            .float()
+            .reshape(batch_size, -1)
+        )
+
+        targets = (
+            masks.detach()
+            .reshape(batch_size, -1)
+            >= 0.5
+        )
+
+        predictions = probabilities >= 0.5
+
+        intersection = (
+            (predictions & targets)
+            .sum(dim=1)
+            .float()
+        )
+
+        union = (
+            (predictions | targets)
+            .sum(dim=1)
+            .float()
+        )
+
+        iou = torch.where(
+            union > 0,
+            intersection / union.clamp(min=1),
+            torch.ones_like(union),
+        )
+
+        image_probability = (
+            probabilities.max(dim=1).values
+        )
+
+        labels = batch.get("label")
+
+        if labels is None:
+            labels = targets.any(dim=1)
+
+        names = batch.get("name")
+
+        if names is None:
+            names = [
+                f"sample_{first_index + i:07d}"
+                for i in range(batch_size)
+            ]
+
+        return [
+            {
+                "image_name": names[i],
+                "ground_truth": int(labels[i]),
+                "probability": (
+                    f"{image_probability[i].item():.6f}"
+                ),
+                "predicted_class": int(
+                    image_probability[i].item() >= 0.5
+                ),
+                "iou": f"{iou[i].item():.6f}",
+            }
+            for i in range(batch_size)
+        ]
 
     # ==========================================================
     # Checkpointing
@@ -897,6 +1052,12 @@ class SegmentationTrainer:
             # Best model
             # --------------------------------------------------
 
+            self._append_epoch_metrics(
+                epoch + 1,
+                train_metrics,
+                val_metrics,
+            )
+
             is_best = (
                 val_metrics["iou"]
                 > self.best_iou
@@ -1257,6 +1418,27 @@ class SegmentationTrainer:
             ),
         )
 
+        predictions_csv = (
+            self.prediction_dir
+            / f"val_epoch_{epoch}.csv"
+        )
+
+        csv_file = open(
+            predictions_csv,
+            "w",
+            newline="",
+            encoding="utf-8",
+        )
+
+        writer = csv.DictWriter(
+            csv_file,
+            fieldnames=self.PREDICTION_FIELDS,
+        )
+
+        writer.writeheader()
+
+        seen = 0
+
         for batch in progress:
 
             images = batch[
@@ -1325,6 +1507,17 @@ class SegmentationTrainer:
                 masks,
             )
 
+            writer.writerows(
+                self._prediction_rows(
+                    batch,
+                    probabilities,
+                    masks,
+                    seen,
+                )
+            )
+
+            seen += images.size(0)
+
             progress.set_postfix(
                 {
                     "loss":
@@ -1342,6 +1535,12 @@ class SegmentationTrainer:
                 probabilities,
                 loss,
             )
+
+        csv_file.close()
+
+        self._log(
+            f"Val predictions saved -> {predictions_csv}"
+        )
 
         result = metrics.metrics(
             loss_meter.avg

@@ -11,11 +11,12 @@ One command does everything, in order:
   1. GPU preflight   fail fast (with the fix) if CUDA is unusable — no driver
                      module, or a torch build without kernels for this GPU —
                      instead of silently training on the CPU.
-  2. AWS preflight   s3:// dataroots need working credentials.
+  2. AWS preflight   a dataset on S3 needs working credentials.
   3. Backbone        DINOv3 ViT-L/16 config.json + model.safetensors at the
                      config's model_path, downloaded from S3 if missing.
-  4. Data            processed-v1 MDS streamed from S3 into a bounded local
-                     cache (shard-block shuffling, next shards prefetched).
+  4. Data            the S3 dataset prefix is mounted as a read-only folder
+                     (the yml's `s3_mount:` block) and read like files on a
+                     drive. Nothing is streamed by the training code.
   5. Resume          if <checkpoints>/<name>/latest_checkpoint.pth exists,
                      continue from it — same logic as the SageMaker job
                      (sagemaker/train.py), down to the mid-epoch loader
@@ -24,7 +25,7 @@ One command does everything, in order:
                      what the SageMaker entry point runs.
 
 Interrupt it (Ctrl+C, crash, reboot) and run the same command again to
-continue. The SageMaker pipeline is separate: see infra/README.md.
+continue. The SageMaker pipeline is separate: see sagemaker/README.md.
 """
 
 from __future__ import annotations
@@ -33,7 +34,6 @@ import argparse
 import importlib.util
 import os
 import platform
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -45,13 +45,9 @@ REPO = Path(__file__).resolve().parent
 
 DEFAULT_CONFIG = REPO / "configs" / "local" / "train_forensics.yml"
 SMOKE_CONFIG = REPO / "configs" / "local" / "smoke.yml"
-DEFAULT_CACHE_DIR = Path.home() / "data" / "mds_cache"
 
 # Where the SageMaker job gets the backbone — the single source of truth.
-SAGEMAKER_CONFIG = REPO / "sagemaker" / "config" / "normal" / "train_forensics.yml"
-
-SHARD_GB = 0.54         # processed-v1 shards are written at <= 512 MiB
-DISK_HEADROOM_GB = 30   # left free for checkpoints (~1.3 GB each) and the OS
+SAGEMAKER_CONFIG = REPO / "sagemaker" / "config" / "train_forensics.yml"
 
 
 def log(msg: str) -> None:
@@ -118,7 +114,7 @@ def check_gpu(allow_cpu: bool) -> None:
 
 
 # ============================================================
-# 2-4. AWS, backbone, cache
+# 2-4. AWS, backbone, dataset mount
 # ============================================================
 
 def _is_s3(path) -> bool:
@@ -169,30 +165,32 @@ def ensure_backbone(model_dir: Path) -> None:
         tmp.rename(model_dir / name)
 
 
-def size_cache(opt: dict, cache_dir: Path) -> None:
+def mount_dataset(spec: dict, base: Path) -> None:
     """
-    streaming only evicts once a split's cache reaches cache_limit, so the
-    limit is what the cache *will* use: size it to the shard blocks in
-    flight (current + prefetched next, with slack), not to the free disk.
-    The limit applies to each split; the test split (~15 GB) is read in
-    order and fits under it.
+    Mount the yml's `s3_mount:` prefix as a read-only folder, unless it is
+    already mounted. The dataroots point at folders under mount_point.
     """
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    opt["cache_dir"] = str(cache_dir)
-    if opt.get("cache_limit"):
+    from authgenforge.utils.s3_mount import S3MountError, is_mounted, mount_s3
+
+    uri, mount_point = spec.get("uri"), _absolutize(spec.get("mount_point"), base)
+    if not uri or not mount_point:
+        fail("s3_mount needs both uri and mount_point")
+    if is_mounted(mount_point):
+        log(f"dataset {uri} already mounted at {mount_point}")
         return
-    block = int(opt["datasets"]["train"].get("shard_block") or 1)
-    # >= 4 shards: streaming's own minimum
-    limit = max(4, round(1.5 * (2 * block + 4))) * SHARD_GB
-    free_gb = shutil.disk_usage(cache_dir).free / 1e9
-    if 2 * limit > free_gb - DISK_HEADROOM_GB:
-        fail(
-            f"only {free_gb:.0f} GB free at {cache_dir}; the S3 cache needs {2 * limit:.0f} GB "
-            f"(train + test, shard_block {block}) plus {DISK_HEADROOM_GB} GB headroom.\n"
-            "Fix: free space, pass --cache-dir on a bigger disk, or lower datasets.train.shard_block."
+
+    check_aws()
+    try:
+        mount_s3(
+            uri,
+            mount_point,
+            cache_dir=_absolutize(spec.get("cache_dir"), base),
+            max_cache_gb=spec.get("max_cache_gb"),
+            region=spec.get("region"),
         )
-    opt["cache_limit"] = f"{int(limit * 1000)}mb"
-    log(f"S3 cache {cache_dir} (≤ {limit:.0f} GB per split, {free_gb:.0f} GB free)")
+    except S3MountError as e:
+        fail(str(e))
+    log(f"dataset {uri} mounted at {mount_point}")
 
 
 # ============================================================
@@ -208,11 +206,11 @@ def _absolutize(value, base: Path):
     return str(p if p.is_absolute() else (base / p).resolve())
 
 
-def build_config(cfg_path: Path, cache_dir: Path) -> tuple[dict, Path]:
+def build_config(cfg_path: Path) -> tuple[dict, Path]:
     """
     The config with every relative path made absolute (the effective config
     is written elsewhere, so parse_yml's relative resolution must not apply),
-    the cache filled in, and the run-specific assets checked.
+    the dataset mounted, and the run-specific assets checked.
     """
     opt = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     base = cfg_path.parent
@@ -235,12 +233,16 @@ def build_config(cfg_path: Path, cache_dir: Path) -> tuple[dict, Path]:
 
     roots = [r for s in ("train", "test") for r in (lambda d: d if isinstance(d, list) else [d])(opt["datasets"][s]["dataroot"])]
     if any(_is_s3(r) for r in roots):
-        check_aws()
-        size_cache(opt, cache_dir)
-    else:
-        for r in roots:
-            if not (Path(r) / "index.json").is_file():
-                fail(f"no MDS index.json at {r}")
+        fail(
+            "dataroot is an s3:// URL, and the dataset is no longer streamed.\n"
+            "Fix: add an `s3_mount:` block and point dataroot at a folder under its "
+            "mount_point (see configs/local/train_forensics.yml)."
+        )
+    if opt.get("s3_mount"):
+        mount_dataset(opt["s3_mount"], base)
+    for r in roots:
+        if not (Path(r) / "index.json").is_file():
+            fail(f"no MDS index.json at {r}")
 
     ensure_backbone(Path(bb["model_path"]))
 
@@ -273,8 +275,6 @@ def main() -> None:
                     help=f"use {SMOKE_CONFIG.relative_to(REPO)}: smoke slice, 1 epoch")
     ap.add_argument("--epochs", type=int, default=None,
                     help="stop after this epoch (default: epoch_settings.total_epochs)")
-    ap.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR,
-                    help=f"local cache for S3 shards (default {DEFAULT_CACHE_DIR})")
     ap.add_argument("--allow-cpu", action="store_true",
                     help="run even without a usable GPU (very slow)")
     args = ap.parse_args()
@@ -296,7 +296,7 @@ def main() -> None:
     log(f"config {cfg_path.relative_to(REPO) if cfg_path.is_relative_to(REPO) else cfg_path} · git {sha or 'unknown'}")
 
     check_gpu(args.allow_cpu)
-    opt, local_cfg = build_config(cfg_path, args.cache_dir.expanduser().resolve())
+    opt, local_cfg = build_config(cfg_path)
 
     end_epoch = args.epochs or int((opt.get("epoch_settings") or {}).get("total_epochs") or 1)
 

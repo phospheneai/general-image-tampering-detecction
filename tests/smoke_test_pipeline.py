@@ -6,7 +6,7 @@ checkpoint saving, logging, and inference — without running full epochs.
 Run from the project root:
     python tests/smoke_test_pipeline.py           # CUDA
     python tests/smoke_test_pipeline.py --cpu     # CPU
-    python tests/smoke_test_pipeline.py --config configs/normal/train_forensics_mds.yml   # MDS dataset
+    python tests/smoke_test_pipeline.py --config configs/train_forensics_mds.yml   # MDS dataset
 """
 import sys
 import os
@@ -24,7 +24,7 @@ import itertools
 from authgenforge import *
 from authgenforge.options.load import load_pipeline_from_yml
 
-CONFIG_PATH   = "configs/normal/train_forensics.yml"
+CONFIG_PATH   = "configs/train_forensics.yml"
 N_TRAIN_STEPS = 3
 N_VAL_STEPS   = 2
 

@@ -522,7 +522,6 @@ class SegmentationEvaluator:
                 return ForensicsMDSDataset(
                     dataset_config["dataroot"],
                     transform=transform,
-                    cache_dir=self.opt.get("cache_dir"),
                 )
 
             if data_format == "folder":
