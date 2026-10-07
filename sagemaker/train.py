@@ -250,7 +250,7 @@ def main() -> None:
 
     parser.add_argument(
         "--config",
-        default="config/normal/train_forensics.yml",
+        default="config/train_forensics.yml",
         help=(
             "Training YAML configuration relative to "
             "the SageMaker source directory."
@@ -370,6 +370,14 @@ def main() -> None:
 
     print(
         f"[train] end_epoch={end_epoch}",
+        flush=True,
+    )
+
+    # Which code produced this run's checkpoints: GIT_SHA is baked into the
+    # image at build time, TRAINING_IMAGE is set by the state machine.
+    print(
+        f"[train] git_sha={os.environ.get('GIT_SHA', 'unknown')} "
+        f"image={os.environ.get('TRAINING_IMAGE', 'unknown')}",
         flush=True,
     )
 

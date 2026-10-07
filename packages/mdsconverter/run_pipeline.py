@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DAG orchestrator for the dataset pipeline (see packages/mdsconverter/README.md):
+DAG orchestrator for the dataset pipeline (see DATASET_PIPELINE.md):
 validate -> remediate -> convert. Each stage is its own standalone script
 with its own config (validate_dataset.py, remediate_dataset.py,
 build_mds_dataset.py) and can be toggled on/off independently via

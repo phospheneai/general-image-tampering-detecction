@@ -22,8 +22,8 @@ Usage:
     python packages/mdsconverter/validate_dataset.py --config configs/mds/validate_dataset.yml --split train
 
     # plain CLI, no yaml
-    python packages/mdsconverter/validate_dataset.py --data-root D:/forensics_raw \\
-        --datasets CASIAv2:train Columbia:test --report-out D:/forensics_raw/_logs/validation_report.csv
+    python packages/mdsconverter/validate_dataset.py --data-root /home/ubuntu/data/raw/train \\
+        --datasets CASIA_v2:train MISD:train --report-out /home/ubuntu/data/logs/validation_report.csv
 
 Requires: pip install pillow numpy tqdm pyyaml
 """

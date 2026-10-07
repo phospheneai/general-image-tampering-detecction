@@ -59,3 +59,5 @@ wandb/
 .env
 .env.*
 !.env.example
+# scripts/make_smoke_mds.py default output
+smoke_mds/

@@ -5,6 +5,7 @@ If it can't, that's an architecture/loss wiring bug — check this before
 spending GPU time debugging a full run that isn't converging.
 Run from the project root:
     python tests/overfit_single_batch.py
+    python tests/overfit_single_batch.py --config configs/train_forensics_mds.yml   # MDS dataset
 """
 
 import os
@@ -20,7 +21,7 @@ from authgenforge.options.load import (
     get_sample_from_yml,
 )
 
-CONFIG_PATH = "configs/normal/train_forensics.yml"
+CONFIG_PATH = "configs/train_forensics.yml"
 N_ITERS     = 200
 LR          = 5e-4
 
@@ -79,13 +80,18 @@ def overfit_on_single_batch(model, batch, criterion, optimizer, n_iters=N_ITERS)
 # ------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default=CONFIG_PATH, help=f"training yml (default: {CONFIG_PATH})")
+    args = parser.parse_args()
+
     print(f"Device: {device}")
 
-    model     = get_model_from_yml(CONFIG_PATH).to(device)
-    criterion = get_criterion_from_yml(CONFIG_PATH)
+    model     = get_model_from_yml(args.config).to(device)
+    criterion = get_criterion_from_yml(args.config)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=0)
 
-    sample = get_sample_from_yml(CONFIG_PATH)
+    sample = get_sample_from_yml(args.config)
     print(f"Sample — image: {sample['image'].shape}  mask: {sample['mask'].shape}")
 
     overfit_on_single_batch(model, sample, criterion, optimizer)

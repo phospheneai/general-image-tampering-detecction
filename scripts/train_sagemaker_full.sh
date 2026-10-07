@@ -43,7 +43,7 @@
 #
 # Region, output bucket, and input channels are defined in:
 #
-#   sagemaker/config/normal/train_forensics.yml
+#   sagemaker/config/train_forensics.yml
 #
 # ============================================================
 
@@ -92,7 +92,7 @@ esac
 
 LAUNCH_ARGS=(
     --config
-    "config/normal/train_forensics.yml"
+    "config/train_forensics.yml"
 
     --volume-size
     "200"

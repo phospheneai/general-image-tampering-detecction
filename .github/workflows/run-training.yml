@@ -1,0 +1,103 @@
+# Start a training run: one click.
+# Picks an image already in ECR and starts the state machine, which creates the
+# GPU training job that pulls that image and runs sagemaker/train.py.
+# Returns as soon as the job is started; follow it in the SageMaker console.
+name: Run training
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_name:
+        description: "Run name — becomes the SageMaker job name and the S3 sub-prefix"
+        required: true
+      image_tag:
+        description: "ECR tag to run (commit SHA from Build training image, or latest — prefer the SHA for real runs)"
+        required: false
+        default: "latest"
+      config:
+        description: "Training config inside the image (smoke has its own workflow)"
+        required: false
+        type: choice
+        default: "config/train_forensics.yml"
+        options:
+          - "config/train_forensics.yml"
+      end_epoch:
+        description: "Stop after this epoch"
+        required: false
+        default: "1"
+      max_runtime_hours:
+        description: "Hard time limit for the job, in hours (SageMaker max is 672)"
+        required: false
+        default: "72"
+
+env:
+  AWS_REGION: us-east-1
+  STATE_MACHINE: forgery-training
+  ECR_REPOSITORY: forgery-train
+  DATA: s3://authenta-data-rnd/image-tampering-detection
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Start the pipeline
+        env:
+          RUN_NAME: ${{ inputs.run_name }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          CONFIG: ${{ inputs.config }}
+          END_EPOCH: ${{ inputs.end_epoch }}
+          MAX_HOURS: ${{ inputs.max_runtime_hours }}
+        run: |
+          set -euo pipefail
+          [[ "$END_EPOCH" =~ ^[1-9][0-9]*$ ]] || { echo "::error::end_epoch must be a positive integer"; exit 1; }
+          if ! [[ "$MAX_HOURS" =~ ^[1-9][0-9]*$ ]] || [ "$MAX_HOURS" -gt 672 ]; then
+            echo "::error::max_runtime_hours must be an integer 1-672"; exit 1
+          fi
+
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          IMAGE="${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          # fail now, not 10 minutes into provisioning
+          aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$IMAGE_TAG" --region "$AWS_REGION" >/dev/null
+          aws s3 ls "$DATA/artifacts/dinov3-vitl16/model.safetensors" >/dev/null \
+            || { echo "::error::DINOv3 backbone missing at $DATA/artifacts/dinov3-vitl16/ (sagemaker/README.md)"; exit 1; }
+
+          # SageMaker job names must be unique forever and match [a-zA-Z0-9-]{1,63};
+          # the execution name becomes the job name, so it is sanitised and stamped.
+          SLUG=$(printf '%s' "$RUN_NAME" | tr -c 'a-zA-Z0-9-' '-' | sed 's/-\{2,\}/-/g; s/^-//; s/-$//')
+          STAMP=$(date -u +%Y%m%d-%H%M%S)
+          JOB="$(printf '%.*s' $((63 - ${#STAMP} - 1)) "$SLUG")-${STAMP}"
+          JOB="${JOB#-}"
+
+          INPUT=$(jq -nc --arg i "$IMAGE" --arg c "$CONFIG" --arg e "$END_EPOCH" \
+                   --argjson s "$((MAX_HOURS * 3600))" \
+                   '{image_uri:$i, config:$c, end_epoch:$e, max_runtime_seconds:$s}')
+
+          EXEC=$(aws stepfunctions start-execution \
+            --state-machine-arn "arn:aws:states:${AWS_REGION}:${ACCOUNT}:stateMachine:${STATE_MACHINE}" \
+            --name "$JOB" --input "$INPUT" --query executionArn --output text)
+
+          {
+            echo "### Training started"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| job | \`${JOB}\` |"
+            echo "| image | \`${IMAGE}\` |"
+            echo "| config | \`${CONFIG}\` |"
+            echo "| epochs / limit | ${END_EPOCH} / ${MAX_HOURS} h |"
+            echo "| checkpoints | \`${DATA}/sagemaker/checkpoints/${JOB}/\` |"
+            echo "| logs | \`/aws/sagemaker/TrainingJobs/${JOB}\` |"
+            echo "| execution | \`${EXEC}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "started $EXEC"

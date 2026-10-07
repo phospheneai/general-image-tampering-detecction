@@ -9,6 +9,10 @@ from authgenforge.data.dataloader import (
     build_dataloaders,
 )
 
+from authgenforge.data.forensics_mds_dataloader import (
+    build_mds_dataloaders,
+)
+
 from authgenforge.losses import (
     ForgerySegmentationLoss,
 )
@@ -62,6 +66,28 @@ def _cfg(value, default):
 # Data
 # ------------------------------------------------------------------
 
+# Every backend here accepts the same kwargs (train_dir, test_dir,
+# crop_size, batch_size, num_workers, test_num_workers, pin_memory,
+# buffer_size, stateful) and returns
+# (train_loader, test_loader) — that's what keeps switching backends a
+# one-line config change (data_format:) instead of a call-site rewrite.
+# Backend-specific extras are passed only to that backend (see
+# _backend_extra_kwargs).
+_DATASET_BACKENDS = {
+    "folder": build_dataloaders,
+    "mds": build_mds_dataloaders,
+}
+
+
+def _backend_extra_kwargs(backend: str, opt: dict) -> dict:
+    if backend == "mds":
+        return {
+            # shard-local shuffling — see
+            # authgenforge/data/shard_block_sampler.py
+            "shard_block": opt["datasets"]["train"].get("shard_block"),
+        }
+    return {}
+
 
 def get_dataloaders_from_yml(
     yml_path: str,
@@ -86,12 +112,18 @@ def get_dataloaders_from_yml(
     train_cfg = opt["datasets"]["train"]
     test_cfg = opt["datasets"]["test"]
 
-    data_context = _cfg(
-        opt.get("data_context"),
-        "normal",
+    backend = _cfg(
+        opt.get("data_format"),
+        "folder",
     )
 
-    train_loader, test_loader = build_dataloaders(
+    if backend not in _DATASET_BACKENDS:
+        raise ValueError(
+            f"Unknown data_format={backend!r} in {yml_path}. "
+            f"Available: {sorted(_DATASET_BACKENDS)}"
+        )
+
+    train_loader, test_loader = _DATASET_BACKENDS[backend](
         train_dir=train_cfg["dataroot"],
         test_dir=test_cfg["dataroot"],
 
@@ -130,12 +162,7 @@ def get_dataloaders_from_yml(
             True,
         ),
 
-        data_context=data_context,
-
-        data_format=_cfg(
-            opt.get("data_format"),
-            "folder",
-        ),
+        **_backend_extra_kwargs(backend, opt),
     )
 
     return (
@@ -579,6 +606,13 @@ def get_trainer_from_yml(
             if resume
             else None
         ),
+
+        resume_dataloader=bool(
+            _cfg(
+                ts.get("resume_dataloader"),
+                True,
+            )
+        ),
     )
 
 
@@ -626,11 +660,6 @@ def get_sample_from_yml(
         buffer_size=_cfg(
             train_cfg.get("buffer_size"),
             1000,
-        ),
-
-        data_context=_cfg(
-            opt.get("data_context"),
-            "normal",
         ),
 
         data_format=_cfg(

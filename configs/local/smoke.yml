@@ -1,0 +1,75 @@
+# Local smoke run (python train.py --smoke): the 64/32-sample smoke slice
+# read from the mounted S3 prefix, 1 epoch, batch 2 — exercises every step
+# of a real local run (GPU preflight, backbone fetch, S3 mount, AMP train,
+# validation, checkpoint, resume) in a few minutes.
+
+name: local_smoke
+model: dinov3_forensics_lora
+type: binary_segmentation
+data_format: mds
+
+# same mount as configs/local/train_forensics.yml
+s3_mount:
+  uri: s3://authenta-data-rnd/image-tampering-detection/
+  mount_point: ~/data/s3/image-tampering-detection
+  cache_dir: ~/data/s3_mount_cache
+  max_cache_gb: 50
+
+datasets:
+  train:
+    dataroot: ~/data/s3/image-tampering-detection/smoke/train
+    shard_block: 1
+    n_workers: 2
+    batch_size: 2
+    crop_size: 512
+    buffer_size: 0
+    total_samples: null
+    stateful_loader: true    # same loader class as a real run
+    pin_memory: true
+  test:
+    dataroot: ~/data/s3/image-tampering-detection/smoke/test
+    n_workers: 2
+    crop_size: 512
+    pin_memory: true
+
+structure:
+  backbone:
+    model_path: ../../artifacts/mirror/dinov3-vitl16
+    model_type: dinov3_vitl16
+    lora_rank: 32
+    lora_alpha: 64
+    lora_dropout: 0.0
+
+pretraining_settings:
+  want_load: false           # from the DINOv3 backbone only — no init .pth
+  checkpoint_path: ""
+  strict_load: true
+
+epoch_settings:
+  total_epochs: 1
+
+train_settings:
+  base_lr: !!float 5e-4
+  weight_decay: !!float 0.05
+  layer_decay: 0.8
+
+  scheduler_type: annealing
+  warmup_epochs: 0.05
+  warmup_lr: !!float 2.5e-7
+  min_lr: !!float 1e-5
+  T_0_epochs: 1
+
+  criterion: forgery_segmentation
+  forgery_segmentation_loss:
+    edge_lambda: 20.0
+
+  grad_accum_steps: 1
+  grad_clip: 1.0
+  save_interval: 5           # mid-epoch checkpoint, so the S3 sync is exercised
+  log_interval: 1
+
+  mixed_precision: true
+
+  save_checkpoint_folder_path: ../../checkpoints
+  load_checkpoint_file_path:
+  resume_dataloader: true

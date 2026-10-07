@@ -1,0 +1,2 @@
+# keep scripts LF on every checkout — bash fails on CRLF line endings
+*.sh text eol=lf

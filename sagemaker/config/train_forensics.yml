@@ -1,0 +1,155 @@
+# ============================================================
+# General settings
+# ============================================================
+
+name: train_forensics_v1
+model: dinov3_forensics_lora
+type: binary_segmentation
+
+# MDS shards (processed-v1), read in place from the SageMaker input channels.
+# Channel name <-> dataroot: the state machine (infra/train-pipeline.asl.json)
+# mounts channel `train` at /opt/ml/input/data/train, etc. Rename one, rename
+# the other — tests/sagemaker/test_infra.py fails if they drift.
+data_format: mds
+
+
+# ============================================================
+# Datasets
+# ============================================================
+
+datasets:
+
+  train:
+    # s3://authenta-data-rnd/image-tampering-detection/processed-v1/train/
+    dataroot: /opt/ml/input/data/train
+    n_workers: 8
+    batch_size: 4
+    crop_size: 512
+    buffer_size: 1000
+    total_samples: null
+    stateful_loader: true
+    pin_memory: true
+
+  test:
+    # s3://authenta-data-rnd/image-tampering-detection/processed-v1/test/
+    dataroot: /opt/ml/input/data/test
+    n_workers: 4
+    crop_size: 512
+    pin_memory: true
+
+
+# ============================================================
+# Network structure
+# ============================================================
+
+structure:
+
+  backbone:
+    # config.json + model.safetensors, from
+    # s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/
+    model_path: /opt/ml/input/data/artifacts
+    model_type: dinov3_vitl16
+    lora_rank: 32
+    lora_alpha: 64
+    lora_dropout: 0.0
+
+
+# ============================================================
+# Pretraining settings
+# ============================================================
+
+pretraining_settings:
+
+  want_load: false
+  checkpoint_path: ""
+  strict_load: true
+
+
+# ============================================================
+# Epoch settings
+# ============================================================
+
+epoch_settings:
+
+  total_epochs: 10
+
+
+# ============================================================
+# Training settings
+# ============================================================
+
+train_settings:
+
+  # ----------------------------------------------------------
+  # Optimizer
+  # ----------------------------------------------------------
+
+  base_lr: !!float 5e-4
+  weight_decay: !!float 0.05
+  layer_decay: 0.8
+
+
+  # ----------------------------------------------------------
+  # Scheduler
+  # ----------------------------------------------------------
+
+  scheduler_type: annealing
+  warmup_epochs: 0.05
+  warmup_lr: !!float 2.5e-7
+  min_lr: !!float 1e-5
+  T_0_epochs: 2
+
+
+  # ----------------------------------------------------------
+  # Criterion
+  # ----------------------------------------------------------
+
+  criterion: forgery_segmentation
+
+  forgery_segmentation_loss:
+    edge_lambda: 20.0
+
+
+  # ----------------------------------------------------------
+  # Training mechanics
+  # ----------------------------------------------------------
+
+  grad_accum_steps: 8
+  grad_clip: 1.0
+
+  save_interval: 5000
+  log_interval: 100
+
+  mixed_precision: true
+
+
+  # ----------------------------------------------------------
+  # Checkpointing
+  # ----------------------------------------------------------
+
+  # SageMaker syncs this directory to S3 (CheckpointConfig) and restores it on
+  # a restart, which is what train.py's resume detection relies on. Anything
+  # written elsewhere is lost when the instance stops.
+  save_checkpoint_folder_path: /opt/ml/checkpoints
+
+  load_checkpoint_file_path:
+
+  resume_dataloader: true
+
+# ============================================================
+# SageMaker (sagemaker/launch.py only)
+# ============================================================
+#
+# Read by the laptop launcher, NOT by the automated pipeline: the state
+# machine (infra/train-pipeline.asl.json) carries its own copy of these S3
+# locations in InputDataConfig. Change one, change both.
+
+sagemaker:
+  region: us-east-1
+  output_bucket: authenta-data-rnd
+  checkpoint_prefix: image-tampering-detection/sagemaker/checkpoints
+  output_prefix: image-tampering-detection/sagemaker/output
+  inputs:
+    train:     {uri: s3://authenta-data-rnd/image-tampering-detection/processed-v1/train/, mode: FastFile}
+    test:      {uri: s3://authenta-data-rnd/image-tampering-detection/processed-v1/test/,  mode: FastFile}
+    artifacts: {uri: s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/, mode: File}

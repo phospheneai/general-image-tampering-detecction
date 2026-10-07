@@ -1,0 +1,44 @@
+# Build context is the repo root; sagemaker/Dockerfile copies only
+# authgenforge/ and sagemaker/ out of it. This list keeps the context small
+# and keeps weights/data from ever being sent to the builder.
+
+# not needed to train
+playground/
+notebooks/
+configs/          # the image uses sagemaker/config/, not this copy
+packages/
+tests/
+scripts/
+infra/
+artifacts/        # the backbone arrives on the `artifacts` S3 channel
+
+# repo/tooling noise
+.git
+.github
+.dockerignore
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+
+# never bake weights or data into the image — they arrive as S3 input channels
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.parquet
+*.arrow
+*.mds
+checkpoints/
+logs/
+*.log

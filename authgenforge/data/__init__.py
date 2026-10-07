@@ -1,6 +1,7 @@
-# dataloader.py imports authgenforge.data.forensics_dataset, which is not
-# yet implemented (the Parquet dataset format is still being finalized —
-# see sagemaker/README.md) — NOT imported here so `import authgenforge.data`
-# doesn't hard-fail while that implementation is pending. Import directly
-# once it exists, e.g.:
-#   from authgenforge.data.dataloader import build_dataloaders
+# The dataset/dataloader modules import torch, PIL and (for MDS)
+# mosaicml-streaming at module level — NOT imported here so
+# `import authgenforge.data` stays cheap. Import the backend you need
+# directly, or select it with `data_format:` in the training yml (see
+# _DATASET_BACKENDS in authgenforge/options/load.py), e.g.:
+#   from authgenforge.data.dataloader import build_dataloaders                  # folder
+#   from authgenforge.data.forensics_mds_dataloader import build_mds_dataloaders  # mds

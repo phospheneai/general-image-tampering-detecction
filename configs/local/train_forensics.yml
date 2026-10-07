@@ -1,11 +1,32 @@
 # ============================================================
+# Local GPU run (python train.py) — same model + hyperparameters as
+# sagemaker/config/train_forensics.yml; only the I/O differs:
+# processed-v1 is read from a mounted S3 prefix (the 1.1 TB train split
+# does not fit on the box) and checkpoints stay local.
+# Relative paths resolve against this file.
+# ============================================================
+
+# ============================================================
 # General settings
 # ============================================================
 
-name: train_forensics_v1
+name: train_forensics_local_v1
 model: dinov3_forensics_lora
 type: binary_segmentation
-data_context: normal
+
+data_format: mds
+
+# The dataset lives on S3 and is mounted as a read-only folder, so it is
+# read like files on a drive (train.py mounts it; by hand:
+# python -m authgenforge.utils.s3_mount <uri> <mount_point>). The dataroots
+# below are folders under mount_point.
+# cache_dir keeps the blocks already read on local disk, up to max_cache_gb,
+# so reading them again does not go back to S3; set it to null for no cache.
+s3_mount:
+  uri: s3://authenta-data-rnd/image-tampering-detection/
+  mount_point: ~/data/s3/image-tampering-detection
+  cache_dir: ~/data/s3_mount_cache
+  max_cache_gb: 50
 
 
 # ============================================================
@@ -15,7 +36,11 @@ data_context: normal
 datasets:
 
   train:
-    dataroot: ""
+    dataroot: ~/data/s3/image-tampering-detection/processed-v1/train
+    # Shuffle within blocks of this many random shards (new order each
+    # epoch) so reads stay within a few files of the mount at a time —
+    # see authgenforge/data/shard_block_sampler.py.
+    shard_block: 32
     n_workers: 8
     batch_size: 4
     crop_size: 512
@@ -25,7 +50,7 @@ datasets:
     pin_memory: true
 
   test:
-    dataroot: ""
+    dataroot: ~/data/s3/image-tampering-detection/processed-v1/test
     n_workers: 4
     crop_size: 512
     pin_memory: true
@@ -38,7 +63,10 @@ datasets:
 structure:
 
   backbone:
-    model_path: ""
+    # config.json + model.safetensors; train.py downloads them from
+    # s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/
+    # when missing.
+    model_path: ../../artifacts/mirror/dinov3-vitl16
     model_type: dinov3_vitl16
     lora_rank: 32
     lora_alpha: 64
@@ -108,7 +136,9 @@ train_settings:
   grad_accum_steps: 8
   grad_clip: 1.0
 
-  save_interval: 5000
+  # optimizer updates (x grad_accum_steps batches) between mid-epoch
+  # checkpoints — each one also stores the loader position for resume
+  save_interval: 1000
   log_interval: 100
 
   mixed_precision: true
@@ -118,6 +148,7 @@ train_settings:
   # Checkpointing
   # ----------------------------------------------------------
 
+  # train.py resumes automatically from <this>/<name>/latest_checkpoint.pth
   save_checkpoint_folder_path: ../../checkpoints
 
   load_checkpoint_file_path:

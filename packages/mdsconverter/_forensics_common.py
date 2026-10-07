@@ -261,11 +261,16 @@ def discover(specs: list[DatasetSpec], image_exts: set[str], mask_exts: set[str]
         # always start with the dataset name — unambiguous across datasets
         # and matches <data_root>/<rel_path> for the normal layout.
         rel_base = os.path.dirname(spec.path)
+        # the stored `dataset` is the folder's own name, like the reference
+        # repo's folder-derived dataset column — a config key such as
+        # COCO2017_test (only there to be distinct from train's COCO2017)
+        # stays a config detail; `split` already tells the two apart.
+        dataset = os.path.basename(os.path.normpath(spec.path))
 
         for p in auth_files:
             samples.append(Sample(
                 path=p, rel_path=os.path.relpath(p, rel_base), mask_path="", mask_rel_path="",
-                split=spec.split, dataset=spec.name, label_str="authentic",
+                split=spec.split, dataset=dataset, label_str="authentic",
             ))
 
         claimed: set[str] = set()
@@ -280,7 +285,7 @@ def discover(specs: list[DatasetSpec], image_exts: set[str], mask_exts: set[str]
             samples.append(Sample(
                 path=p, rel_path=os.path.relpath(p, rel_base),
                 mask_path=mpath, mask_rel_path=os.path.relpath(mpath, rel_base) if mpath else "",
-                split=spec.split, dataset=spec.name, label_str="tampered", mask_error=err,
+                split=spec.split, dataset=dataset, label_str="tampered", mask_error=err,
             ))
 
         st.orphan_masks = sum(len(v) for v in mask_index.values()) - len(claimed)

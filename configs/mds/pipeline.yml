@@ -8,13 +8,17 @@
 #### config: paths are relative to this file's directory (configs/mds/).
 
 stages:
+  # validate + remediate off, like the reference repo's pipeline.yml: the
+  # raw dataset was decode-checked before it was uploaded to S3, and Step 1
+  # confirmed the local copy is byte-for-byte what's in S3. Turn back on
+  # for any newly ingested source.
   validate:
-    enabled: true
+    enabled: false
     config: validate_dataset.yml
     # split: train   # optional, restrict to one split
 
   remediate:
-    enabled: true
+    enabled: false
     config: remediate_dataset.yml
     # If validate found failures, stop and ask y/n before remediate +
     # convert run. Zero failures -> no prompt, proceeds straight through.

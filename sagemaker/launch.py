@@ -10,7 +10,7 @@ Example:
 
 Region, bucket, and input channels come from the `sagemaker:` block of
 
-    sagemaker/config/normal/train_forensics.yml
+    sagemaker/config/train_forensics.yml
 
 The configuration path is relative to `sagemaker/`, which is also the
 estimator's source_dir.
@@ -56,6 +56,7 @@ from __future__ import annotations
 # ============================================================
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -81,7 +82,7 @@ REPO_ROOT = Path(
 SM_SRC = REPO_ROOT / "sagemaker"
 
 DEFAULT_CONFIG = (
-    "config/normal/train_forensics.yml"
+    "config/train_forensics.yml"
 )
 
 
@@ -97,67 +98,18 @@ PY_VERSION = "py311"
 # Metrics
 # ============================================================
 
-# These regexes correspond to the segmentation trainer's
-# per-epoch logging output.
-#
-# The exact trainer log format should be kept aligned with
-# these definitions when logging is finalized.
+# The same regexes the state machines scrape with — one copy, kept in the
+# ASL. They match SegmentationTrainer._print_metrics, e.g.
+#   [Train] Epoch 3 | loss 0.1234 | IoU 0.5000 | F1 0.6000 | precision ...
+# tests/sagemaker/emulate_training_job.py checks every one of them against
+# real trainer output.
 
-METRIC_DEFS = [
-    {
-        "Name": "train:loss",
-        "Regex": (
-            r"train.*loss[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "train:iou",
-        "Regex": (
-            r"train.*iou[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "train:f1",
-        "Regex": (
-            r"train.*f1[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "val:loss",
-        "Regex": (
-            r"val.*loss[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "val:iou",
-        "Regex": (
-            r"val.*iou[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "val:f1",
-        "Regex": (
-            r"val.*f1[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "val:precision",
-        "Regex": (
-            r"val.*precision[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "val:recall",
-        "Regex": (
-            r"val.*recall[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
-    {
-        "Name": "val:accuracy",
-        "Regex": (
-            r"val.*accuracy[:=]\s*([0-9eE+.\-]+)"
-        ),
-    },
+METRIC_DEFS = json.loads(
+    (REPO_ROOT / "infra" / "train-pipeline.asl.json").read_text(
+        encoding="utf-8",
+    )
+)["States"]["Train"]["Parameters"]["AlgorithmSpecification"][
+    "MetricDefinitions"
 ]
 
 
@@ -607,7 +559,7 @@ def main() -> None:
 
         mode = spec.get(
             "mode",
-            "File",
+            "FastFile",
         )
 
         channels[name] = (

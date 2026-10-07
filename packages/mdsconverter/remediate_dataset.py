@@ -51,13 +51,16 @@ def load_failed_rows(report_path: str, reasons: set[str] | None) -> list[dict]:
 
 
 def targets(row: dict, quarantine_dir: str | None) -> list[tuple[str, str | None]]:
-    """[(src, dest_or_None), ...] — the image, plus its mask when there is one."""
-    ds = row.get("dataset") or "unknown"
-    out = [(row["path"], os.path.join(quarantine_dir, ds, row.get("label") or "unknown",
-                                      os.path.basename(row["path"])) if quarantine_dir else None)]
+    """[(src, dest_or_None), ...] — the image, plus its mask when there is one.
+    Split is part of the path: the same dataset folder name can exist in
+    both splits (COCO2017), and a move must never land on another file."""
+    base = os.path.join(quarantine_dir, row.get("split") or "unknown",
+                        row.get("dataset") or "unknown") if quarantine_dir else None
+    out = [(row["path"], os.path.join(base, row.get("label") or "unknown",
+                                      os.path.basename(row["path"])) if base else None)]
     if row.get("mask_path"):
-        out.append((row["mask_path"], os.path.join(quarantine_dir, ds, "mask",
-                                                   os.path.basename(row["mask_path"])) if quarantine_dir else None))
+        out.append((row["mask_path"], os.path.join(base, "mask",
+                                                   os.path.basename(row["mask_path"])) if base else None))
     return out
 
 
@@ -123,6 +126,11 @@ def main():
                 if action == "delete":
                     os.remove(src)
                 else:
+                    if os.path.exists(dest):
+                        # shutil.move silently replaces an existing file on POSIX
+                        errors += 1
+                        print(f"WARNING: not moving {src}: {dest} already exists", file=sys.stderr)
+                        continue
                     os.makedirs(os.path.dirname(dest), exist_ok=True)
                     shutil.move(src, dest)
                 done += 1

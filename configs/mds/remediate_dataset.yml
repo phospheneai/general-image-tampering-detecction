@@ -1,18 +1,19 @@
 #### packages/mdsconverter/remediate_dataset.py config — stage 2.
 #### Dry-run by default regardless of what's below — pass --execute (or set
 #### stages.remediate.execute / answer "y" in pipeline.yml's interactive
-#### gate) to actually delete/move anything:
+#### gate) to actually move anything:
 ####   python packages/mdsconverter/remediate_dataset.py --config configs/mds/remediate_dataset.yml            # dry run
 ####   python packages/mdsconverter/remediate_dataset.py --config configs/mds/remediate_dataset.yml --execute   # for real
 
 # validate_dataset.yml's report_out.
-report: D:/forensics_raw/_logs/validation_report.csv
+report: /home/ubuntu/data/logs/validation_report.csv
 
-# move (default here) -> <quarantine_dir>/<dataset>/<label>/<file> (+ mask/),
-#                         reversible by hand if a failure was a false positive
-# delete              -> gone for good
+# move -> <quarantine_dir>/<split>/<dataset>/<label>/<file> (+ mask/),
+#         reversible by hand if a failure was a false positive. Never
+#         overwrites an existing file there.
+# Never `delete` here: raw/ is the only local copy of the Glacier restore.
 action: move
-quarantine_dir: D:/forensics_raw/_quarantine
+quarantine_dir: /home/ubuntu/data/quarantine
 
 # Only act on these failure kinds (null = all). missing-mask is left out
 # on purpose: a whole dataset "missing" masks is usually a naming mismatch —

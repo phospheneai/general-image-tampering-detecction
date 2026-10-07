@@ -1,0 +1,156 @@
+{
+  "Comment": "Forgery-segmentation smoke test. Same image, instance and backbone channel as the real pipeline, but config/smoke.yml on the smoke/ MDS slice, 1 epoch, 1-hour cap. Exercises ECR pull, FastFile mount, MDS read, fwd/bwd, checkpoint and S3 sync in ~10 min. Execution input: {image_uri}.",
+  "StartAt": "SmokeTrain",
+  "States": {
+    "SmokeTrain": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync",
+      "Parameters": {
+        "TrainingJobName.$": "$$.Execution.Name",
+        "RoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/forgery-sagemaker-role",
+        "AlgorithmSpecification": {
+          "TrainingImage.$": "$.image_uri",
+          "TrainingInputMode": "File",
+          "ContainerEntrypoint": [
+            "python",
+            "/opt/ml/code/sagemaker/train.py"
+          ],
+          "EnableSageMakerMetricsTimeSeries": true,
+          "MetricDefinitions": [
+            {
+              "Name": "train:loss",
+              "Regex": "\\[Train\\] Epoch \\d+ \\| loss ([0-9.]+)"
+            },
+            {
+              "Name": "train:iou",
+              "Regex": "\\[Train\\] Epoch \\d+ \\|.*\\| IoU ([0-9.]+)"
+            },
+            {
+              "Name": "train:f1",
+              "Regex": "\\[Train\\] Epoch \\d+ \\|.*\\| F1 ([0-9.]+)"
+            },
+            {
+              "Name": "val:loss",
+              "Regex": "\\[Val\\] Epoch \\d+ \\| loss ([0-9.]+)"
+            },
+            {
+              "Name": "val:iou",
+              "Regex": "\\[Val\\] Epoch \\d+ \\|.*\\| IoU ([0-9.]+)"
+            },
+            {
+              "Name": "val:f1",
+              "Regex": "\\[Val\\] Epoch \\d+ \\|.*\\| F1 ([0-9.]+)"
+            },
+            {
+              "Name": "val:precision",
+              "Regex": "\\[Val\\] Epoch \\d+ \\|.*\\| precision ([0-9.]+)"
+            },
+            {
+              "Name": "val:recall",
+              "Regex": "\\[Val\\] Epoch \\d+ \\|.*\\| recall ([0-9.]+)"
+            },
+            {
+              "Name": "val:accuracy",
+              "Regex": "\\[Val\\] Epoch \\d+ \\|.*\\| accuracy ([0-9.]+)"
+            }
+          ],
+          "ContainerArguments": [
+            "--config",
+            "config/smoke.yml",
+            "--end-epoch",
+            "1"
+          ]
+        },
+        "InputDataConfig": [
+          {
+            "ChannelName": "train",
+            "InputMode": "FastFile",
+            "DataSource": {
+              "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": "s3://authenta-data-rnd/image-tampering-detection/smoke/train/",
+                "S3DataDistributionType": "FullyReplicated"
+              }
+            }
+          },
+          {
+            "ChannelName": "test",
+            "InputMode": "FastFile",
+            "DataSource": {
+              "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": "s3://authenta-data-rnd/image-tampering-detection/smoke/test/",
+                "S3DataDistributionType": "FullyReplicated"
+              }
+            }
+          },
+          {
+            "ChannelName": "artifacts",
+            "InputMode": "File",
+            "DataSource": {
+              "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": "s3://authenta-data-rnd/image-tampering-detection/artifacts/dinov3-vitl16/",
+                "S3DataDistributionType": "FullyReplicated"
+              }
+            }
+          }
+        ],
+        "OutputDataConfig": {
+          "S3OutputPath.$": "States.Format('s3://authenta-data-rnd/image-tampering-detection/sagemaker/smoke/output/{}/', $$.Execution.Name)"
+        },
+        "CheckpointConfig": {
+          "S3Uri.$": "States.Format('s3://authenta-data-rnd/image-tampering-detection/sagemaker/smoke/checkpoints/{}/', $$.Execution.Name)",
+          "LocalPath": "/opt/ml/checkpoints"
+        },
+        "ResourceConfig": {
+          "InstanceType": "ml.g6e.2xlarge",
+          "InstanceCount": 1,
+          "VolumeSizeInGB": 50
+        },
+        "StoppingCondition": {
+          "MaxRuntimeInSeconds": 3600
+        },
+        "Environment": {
+          "TRAINING_IMAGE.$": "$.image_uri"
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "image-tampering-detection"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "smoke-test"
+          }
+        ]
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "SageMaker.AmazonSageMakerException"
+          ],
+          "Comment": "throttling / transient control-plane errors only — a training job that fails is States.TaskFailed and must not be retried",
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "SmokeFailed"
+        }
+      ],
+      "End": true
+    },
+    "SmokeFailed": {
+      "Type": "Fail",
+      "Error": "SmokeTestFailed",
+      "Cause": "Training job did not reach Completed. See CloudWatch /aws/sagemaker/TrainingJobs/<execution name>."
+    }
+  }
+}
